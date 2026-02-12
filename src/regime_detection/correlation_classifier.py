@@ -238,6 +238,8 @@ class CorrelationRegimeClassifier(BaseClassifier):
         
         # Scale features
         X = corr_features.values
+        # Handle NaN/inf values before scaling
+        X = np.nan_to_num(X, nan=0.0, posinf=1.0, neginf=-1.0)
         X_scaled = self.scaler.fit_transform(X)
         
         # Fit clustering
@@ -370,6 +372,8 @@ class CorrelationRegimeClassifier(BaseClassifier):
         
         # Use last row
         X = corr_features.iloc[[-1]].values
+        # Handle NaN/inf values before scaling
+        X = np.nan_to_num(X, nan=0.0, posinf=1.0, neginf=-1.0)
         X_scaled = self.scaler.transform(X)
         
         # Predict cluster

@@ -114,7 +114,7 @@ class MLRegimeClassifier(BaseClassifier):
             min_samples_leaf=self.min_samples_leaf,
             random_state=self.random_state,
             class_weight="balanced",  # Handle class imbalance
-            n_jobs=-1,  # Use all cores
+            n_jobs=1,  # Single-threaded to avoid Windows multiprocessing issues
         )
         self.scaler = StandardScaler()
     

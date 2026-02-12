@@ -207,7 +207,7 @@ class OptionsSurfaceMonitor(AnalyticalModule):
             strength = 0.5
             explanation = f"Vol ({vol:.1f}) is normal for {regime_name}"
         elif vol < levels["elevated"]:
-            signal = "cautious"
+            signal = "bearish"
             strength = 0.6
             explanation = f"Vol ({vol:.1f}) is elevated for {regime_name}"
         else:

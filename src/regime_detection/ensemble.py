@@ -125,7 +125,7 @@ class RegimeEnsemble(BaseClassifier):
             weights: Custom weights for classifiers (must sum to 1)
             disagreement_threshold: Threshold for transition warnings
         """
-        super().__init__(config_path=config_path)
+        super().__init__(n_regimes=4, name="Regime Ensemble")
         
         # Set weights
         if weights:
@@ -138,10 +138,10 @@ class RegimeEnsemble(BaseClassifier):
         
         # Initialize classifiers
         self.classifiers: Dict[str, BaseClassifier] = {
-            "hmm": HMMRegimeClassifier(config_path=config_path),
-            "ml": MLRegimeClassifier(config_path=config_path),
-            "correlation": CorrelationRegimeClassifier(config_path=config_path),
-            "volatility": VolatilityRegimeClassifier(config_path=config_path),
+            "hmm": HMMRegimeClassifier(),
+            "ml": MLRegimeClassifier(),
+            "correlation": CorrelationRegimeClassifier(),
+            "volatility": VolatilityRegimeClassifier(),
         }
         
         # Meta-learning tracker
@@ -191,6 +191,7 @@ class RegimeEnsemble(BaseClassifier):
                 # Don't fail entire ensemble for one classifier
         
         self._is_fitted = True
+        self.is_fitted = True
         return self
     
     def predict(self, data: pd.DataFrame, **kwargs) -> EnsembleResult:
@@ -523,6 +524,36 @@ class RegimeEnsemble(BaseClassifier):
             List of (timestamp, disagreement) tuples
         """
         return self._disagreement_history[-lookback:]
+    
+    def get_feature_importance(self) -> Optional[Dict[str, float]]:
+        """Get aggregated feature importance from all classifiers.
+        
+        Combines feature importance from each classifier, weighted by
+        the ensemble's classifier weights.
+        
+        Returns:
+            Dictionary mapping feature name to importance score,
+            or None if no classifiers report importance
+        """
+        aggregated: Dict[str, float] = {}
+        total_weight = 0.0
+        
+        for name, classifier in self.classifiers.items():
+            weight = self.weights.get(name, 0.0)
+            importance = classifier.get_feature_importance()
+            
+            if importance is not None:
+                total_weight += weight
+                for feature, score in importance.items():
+                    aggregated[feature] = aggregated.get(feature, 0.0) + weight * score
+        
+        if not aggregated or total_weight == 0:
+            return None
+        
+        # Normalize by total contributing weight
+        aggregated = {k: v / total_weight for k, v in aggregated.items()}
+        
+        return aggregated
     
     def predict_sequence(
         self,
