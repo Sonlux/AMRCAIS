@@ -64,12 +64,12 @@ AMRCAIS employs a three-layer architecture:
 
 ### The Four Market Regimes
 
-| Regime | Characteristics | Historical Examples |
-|--------|-----------------|---------------------|
-| **1. Risk-On Growth** | Equities ↑, Bonds ↓, VIX <20 | 2017-2019, 2023-2024 |
-| **2. Risk-Off Crisis** | Correlations spike to +1, VIX >30 | March 2020, Q4 2008 |
-| **3. Stagflation** | Commodities ↑, Equities flat, Rates rising | 2022, 1970s |
-| **4. Disinflationary Boom** | Equities + Bonds both up, Rates falling | Late 2023, 2010-2014 |
+| Regime                      | Characteristics                            | Historical Examples  |
+| --------------------------- | ------------------------------------------ | -------------------- |
+| **1. Risk-On Growth**       | Equities ↑, Bonds ↓, VIX <20               | 2017-2019, 2023-2024 |
+| **2. Risk-Off Crisis**      | Correlations spike to +1, VIX >30          | March 2020, Q4 2008  |
+| **3. Stagflation**          | Commodities ↑, Equities flat, Rates rising | 2022, 1970s          |
+| **4. Disinflationary Boom** | Equities + Bonds both up, Rates falling    | Late 2023, 2010-2014 |
 
 ---
 
@@ -171,13 +171,13 @@ regimes:
 
 ### Analytical Modules
 
-| Module | Purpose | Regime Adaptation |
-|--------|---------|-------------------|
-| **Macro Event Tracker** | Monitors NFP, CPI, FOMC | Different event weights per regime |
-| **Yield Curve Analyzer** | Duration, DV01, curve shapes | Steepening bullish in Growth, bearish in Stagflation |
-| **Options Surface Monitor** | IV surfaces, skew analysis | Adjusted thresholds for volatility regimes |
-| **Factor Exposure Analyzer** | Value, Momentum, Quality factors | Recommends factors by regime |
-| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific baselines |
+| Module                           | Purpose                            | Regime Adaptation                                    |
+| -------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC            | Different event weights per regime                   |
+| **Yield Curve Analyzer**         | Duration, DV01, curve shapes       | Steepening bullish in Growth, bearish in Stagflation |
+| **Options Surface Monitor**      | IV surfaces, skew analysis         | Adjusted thresholds for volatility regimes           |
+| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors   | Recommends factors by regime                         |
+| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific baselines                            |
 
 ### Data Sources
 
@@ -202,32 +202,32 @@ python -m pytest tests/test_core.py::TestRegimeEnsemble -v
 
 **Current Status: 29/29 tests passing ✅**
 
-| Test Class | Tests | Status |
-|---|---|---|
-| TestDataValidator | 4 | ✅ |
-| TestDatabaseStorage | 2 | ✅ |
-| TestHMMClassifier | 3 | ✅ |
-| TestMLClassifier | 2 | ✅ |
-| TestVolatilityClassifier | 2 | ✅ |
-| TestCorrelationClassifier | 1 | ✅ |
-| TestRegimeEnsemble | 5 | ✅ |
-| TestMacroEventTracker | 2 | ✅ |
-| TestYieldCurveAnalyzer | 2 | ✅ |
-| TestOptionsSurfaceMonitor | 1 | ✅ |
-| TestCorrelationAnomalyDetector | 2 | ✅ |
-| TestFullPipeline | 1 | ✅ |
-| TestKnownEvents | 2 | ✅ |
+| Test Class                     | Tests | Status |
+| ------------------------------ | ----- | ------ |
+| TestDataValidator              | 4     | ✅     |
+| TestDatabaseStorage            | 2     | ✅     |
+| TestHMMClassifier              | 3     | ✅     |
+| TestMLClassifier               | 2     | ✅     |
+| TestVolatilityClassifier       | 2     | ✅     |
+| TestCorrelationClassifier      | 1     | ✅     |
+| TestRegimeEnsemble             | 5     | ✅     |
+| TestMacroEventTracker          | 2     | ✅     |
+| TestYieldCurveAnalyzer         | 2     | ✅     |
+| TestOptionsSurfaceMonitor      | 1     | ✅     |
+| TestCorrelationAnomalyDetector | 2     | ✅     |
+| TestFullPipeline               | 1     | ✅     |
+| TestKnownEvents                | 2     | ✅     |
 
 ---
 
 ## 📈 Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Regime Classification Accuracy | ≥80% vs manual labels |
-| Transition Detection | Disagreement >0.6 precedes 70%+ of transitions |
-| Signal Improvement | ≥15% higher Sharpe ratio vs static models |
-| False Positive Rate | ≤20% uncertainty alerts during stable periods |
+| Metric                         | Target                                         |
+| ------------------------------ | ---------------------------------------------- |
+| Regime Classification Accuracy | ≥80% vs manual labels                          |
+| Transition Detection           | Disagreement >0.6 precedes 70%+ of transitions |
+| Signal Improvement             | ≥15% higher Sharpe ratio vs static models      |
+| False Positive Rate            | ≤20% uncertainty alerts during stable periods  |
 
 ---
 
@@ -241,12 +241,12 @@ python -m pytest tests/test_core.py::TestRegimeEnsemble -v
 
 ## � Project Status
 
-| Phase | Status |
-|---|---|
+| Phase                                                    | Status      |
+| -------------------------------------------------------- | ----------- |
 | **Phase 1:** Regime Detection (4 classifiers + ensemble) | ✅ Complete |
-| **Phase 2:** Analytical Modules (5 modules) | ✅ Complete |
-| **Phase 3:** Meta-Learning Layer | ✅ Complete |
-| **Phase 4:** Dashboard & Visualization | 🔜 Planned |
+| **Phase 2:** Analytical Modules (5 modules)              | ✅ Complete |
+| **Phase 3:** Meta-Learning Layer                         | ✅ Complete |
+| **Phase 4:** Dashboard & Visualization                   | 🔜 Planned  |
 
 See [CODEBASE_INDEX.md](CODEBASE_INDEX.md) for detailed project status and next steps.
 

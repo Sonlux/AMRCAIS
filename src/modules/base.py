@@ -46,7 +46,7 @@ class ModuleSignal:
         timestamp: When the signal was generated
         metadata: Additional module-specific data
     """
-    signal: str  # "bullish", "bearish", "neutral"
+    signal: str  # "bullish", "bearish", "neutral", "cautious"
     strength: float  # 0 to 1
     explanation: str
     regime_context: str
@@ -56,7 +56,7 @@ class ModuleSignal:
     
     def __post_init__(self):
         """Validate signal fields."""
-        valid_signals = {"bullish", "bearish", "neutral"}
+        valid_signals = {"bullish", "bearish", "neutral", "cautious"}
         if self.signal not in valid_signals:
             raise ValueError(f"Signal must be one of {valid_signals}, got {self.signal}")
         
