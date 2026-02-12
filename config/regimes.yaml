@@ -1,0 +1,227 @@
+# ==============================================================================
+# AMRCAIS Configuration: Regime Definitions
+# ==============================================================================
+# This file defines the four market regimes and their regime-specific parameters
+# for all analytical modules. NEVER hardcode these values in Python code.
+# ==============================================================================
+
+regimes:
+  1:
+    name: "Risk-On Growth"
+    description: "Equities rising, bonds falling, low volatility, positive correlations"
+    historical_examples:
+      - "2017-2019"
+      - "2023-2024"
+    characteristics:
+      vix_range: [10, 20]
+      equity_trend: "bullish"
+      bond_trend: "bearish"
+      typical_duration_days: [60, 180]
+
+    macro_event_weights:
+      NFP: 1.2
+      CPI: 0.8
+      FOMC: 1.0
+      PMI: 1.1
+      GDP: 0.9
+      RETAIL_SALES: 1.0
+
+    yield_curve_interpretation:
+      steepening: "bullish"
+      flattening: "bearish"
+      parallel_up: "neutral"
+      parallel_down: "bullish"
+      butterfly: "neutral"
+
+    factor_premia:
+      primary: ["momentum", "growth"]
+      secondary: ["quality"]
+      avoid: ["low_vol", "defensive"]
+
+    correlation_baselines:
+      SPX_TLT: -0.30
+      SPX_GLD: -0.10
+      DXY_WTI: -0.40
+      SPX_VIX: -0.80
+
+    options_surface:
+      normal_put_skew_range: [0.80, 1.20]
+      normal_term_structure: "contango"
+      vol_regime: "low"
+
+  2:
+    name: "Risk-Off Crisis"
+    description: "Everything sells, correlations spike to +1, VIX elevated"
+    historical_examples:
+      - "March 2020 COVID"
+      - "Q4 2008 Financial Crisis"
+      - "August 2015 China Devaluation"
+    characteristics:
+      vix_range: [30, 80]
+      equity_trend: "bearish"
+      bond_trend: "mixed" # Flight to quality
+      typical_duration_days: [10, 60]
+
+    macro_event_weights:
+      NFP: 0.3
+      CPI: 0.5
+      FOMC: 1.5
+      PMI: 0.4
+      GDP: 0.3
+      RETAIL_SALES: 0.3
+
+    yield_curve_interpretation:
+      steepening: "flight_to_quality"
+      flattening: "recession_fear"
+      parallel_up: "policy_response"
+      parallel_down: "panic_bid"
+      butterfly: "uncertainty"
+
+    factor_premia:
+      primary: ["low_vol", "quality"]
+      secondary: ["defensive", "min_vol"]
+      avoid: ["momentum", "small_cap", "high_beta"]
+
+    correlation_baselines:
+      SPX_TLT: 0.50
+      SPX_GLD: 0.60
+      DXY_WTI: 0.20
+      SPX_VIX: -0.95
+
+    options_surface:
+      normal_put_skew_range: [1.50, 2.50]
+      normal_term_structure: "backwardation"
+      vol_regime: "high"
+
+  3:
+    name: "Stagflation"
+    description: "Commodities rising, equities flat, rates rising on inflation"
+    historical_examples:
+      - "2022 Inflation Shock"
+      - "1970s Stagflation"
+      - "2011 Debt Ceiling Crisis"
+    characteristics:
+      vix_range: [20, 35]
+      equity_trend: "flat_to_bearish"
+      bond_trend: "bearish"
+      typical_duration_days: [90, 365]
+
+    macro_event_weights:
+      NFP: 0.7
+      CPI: 1.5
+      FOMC: 1.2
+      PMI: 0.8
+      GDP: 0.6
+      RETAIL_SALES: 0.5
+
+    yield_curve_interpretation:
+      steepening: "bearish"
+      flattening: "disinflation_hope"
+      parallel_up: "inflation_pressure"
+      parallel_down: "growth_concern"
+      butterfly: "policy_uncertainty"
+
+    factor_premia:
+      primary: ["value", "commodities"]
+      secondary: ["dividend", "real_assets"]
+      avoid: ["growth", "duration", "tech"]
+
+    correlation_baselines:
+      SPX_TLT: 0.40
+      SPX_GLD: 0.30
+      DXY_WTI: -0.60
+      SPX_VIX: -0.70
+
+    options_surface:
+      normal_put_skew_range: [1.10, 1.60]
+      normal_term_structure: "flat"
+      vol_regime: "elevated"
+
+  4:
+    name: "Disinflationary Boom"
+    description: "Equities and bonds both rising, falling rates, goldilocks"
+    historical_examples:
+      - "Late 2023"
+      - "2010-2014 QE Era"
+      - "2019 Fed Pivot"
+    characteristics:
+      vix_range: [12, 18]
+      equity_trend: "bullish"
+      bond_trend: "bullish"
+      typical_duration_days: [60, 180]
+
+    macro_event_weights:
+      NFP: 1.0
+      CPI: 0.6
+      FOMC: 1.3
+      PMI: 0.9
+      GDP: 1.0
+      RETAIL_SALES: 0.8
+
+    yield_curve_interpretation:
+      steepening: "neutral"
+      flattening: "goldilocks"
+      parallel_up: "growth_optimism"
+      parallel_down: "rate_cut_anticipation"
+      butterfly: "curve_normalization"
+
+    factor_premia:
+      primary: ["quality", "growth"]
+      secondary: ["momentum", "large_cap"]
+      avoid: ["value", "commodities"]
+
+    correlation_baselines:
+      SPX_TLT: 0.20
+      SPX_GLD: -0.20
+      DXY_WTI: -0.30
+      SPX_VIX: -0.85
+
+    options_surface:
+      normal_put_skew_range: [0.90, 1.15]
+      normal_term_structure: "contango"
+      vol_regime: "low"
+
+# ==============================================================================
+# Regime Transition Rules
+# ==============================================================================
+regime_transitions:
+  indicators:
+    - name: "equity_bond_correlation_flip"
+      description: "SPX-TLT correlation turns positive in Risk-On regime"
+      from_regime: 1
+      signal: "transition_to_regime_2"
+
+    - name: "vix_spike"
+      description: "VIX rises above 30 from below 20"
+      threshold: 30
+      signal: "transition_to_regime_2"
+
+    - name: "inflation_acceleration"
+      description: "CPI YoY rises 1%+ in 3 months"
+      from_regime: [1, 4]
+      signal: "transition_to_regime_3"
+
+    - name: "disinflation_confirmation"
+      description: "CPI falling, Fed pivots dovish, bonds rally"
+      from_regime: 3
+      signal: "transition_to_regime_4"
+
+  stability_rules:
+    min_days_in_regime: 5
+    max_flips_before_uncertainty: 3
+    uncertainty_lookback_days: 10
+
+# ==============================================================================
+# Disagreement Index Thresholds
+# ==============================================================================
+disagreement:
+  low_threshold: 0.3
+  medium_threshold: 0.5
+  high_threshold: 0.6
+  critical_threshold: 0.8
+
+  actions:
+    low: "proceed_with_confidence"
+    medium: "monitor_closely"
+    high: "flag_regime_uncertainty"
+    critical: "reduce_positions_hedge"

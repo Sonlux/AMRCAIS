@@ -1,0 +1,195 @@
+# ==============================================================================
+# AMRCAIS Configuration: Model Parameters
+# ==============================================================================
+# Hyperparameters for all classifiers and analytical modules.
+# These should be tuned via cross-validation, not modified ad-hoc.
+# ==============================================================================
+
+# ==============================================================================
+# Regime Classification Models
+# ==============================================================================
+classifiers:
+  hmm:
+    name: "Hidden Markov Model"
+    n_states: 4
+    covariance_type: "full"
+    n_iter: 100
+    tol: 0.01
+    random_state: 42
+    features:
+      - "SPX_returns"
+      - "TLT_returns"
+      - "GLD_returns"
+      - "VIX_level"
+      - "SPX_TLT_correlation"
+    lookback_window: 252 # Trading days (1 year)
+    min_training_samples: 504 # 2 years minimum
+
+  random_forest:
+    name: "Random Forest Classifier"
+    n_estimators: 200
+    max_depth: 10
+    min_samples_split: 20
+    min_samples_leaf: 10
+    random_state: 42
+    class_weight: "balanced"
+    features:
+      - "SPX_returns_20d"
+      - "TLT_returns_20d"
+      - "VIX_level"
+      - "VIX_percentile"
+      - "equity_bond_corr_30d"
+      - "yield_curve_slope"
+      - "credit_spread"
+
+  correlation_cluster:
+    name: "Correlation-Based Clustering"
+    n_clusters: 4
+    method: "spectral"
+    affinity: "precomputed"
+    correlation_window: 60 # Trading days
+    assets: ["SPX", "TLT", "GLD", "DXY", "WTI"]
+
+  volatility_regime:
+    name: "Volatility Regime Detector"
+    vix_thresholds:
+      low: 15
+      normal: 20
+      elevated: 25
+      high: 30
+      extreme: 40
+    realized_vol_window: 20
+    use_garch: true
+    garch_params:
+      p: 1
+      q: 1
+
+# ==============================================================================
+# Ensemble Configuration
+# ==============================================================================
+ensemble:
+  voting_method: "weighted"
+  confidence_weighted: true
+
+  classifier_weights:
+    hmm: 0.35
+    random_forest: 0.25
+    correlation_cluster: 0.20
+    volatility_regime: 0.20
+
+  disagreement:
+    calculation_method: "weighted_entropy"
+    smoothing_window: 5
+    alert_threshold: 0.6
+    critical_threshold: 0.8
+
+# ==============================================================================
+# Module Parameters
+# ==============================================================================
+modules:
+  macro_event_tracker:
+    event_window:
+      pre_event_minutes: 30
+      post_event_minutes: 180
+    surprise_calculation:
+      method: "standardized" # (actual - consensus) / historical_std
+      historical_lookback: 36 # months
+    significance_threshold: 1.5 # standard deviations
+
+  yield_curve_analyzer:
+    tenors: [1, 2, 3, 5, 7, 10, 20, 30] # years
+    interpolation_method: "cubic_spline"
+    curve_metrics:
+      slope_short: [2, 10] # 2s10s spread
+      slope_long: [5, 30] # 5s30s spread
+      butterfly: [2, 10, 30]
+    dv01_notional: 1000000
+
+  options_surface_monitor:
+    clean_data:
+      min_volume: 10
+      max_bid_ask_spread_pct: 0.50
+      iv_outlier_threshold: 3.0 # standard deviations
+    surface_fitting:
+      method: "sabr" # or "svi", "cubic_spline"
+      moneyness_range: [0.80, 1.20]
+      expiry_range_days: [7, 365]
+    skew_calculation:
+      otm_put_delta: -0.25
+      atm_delta: 0.50
+      otm_call_delta: 0.25
+
+  factor_exposure_analyzer:
+    factors:
+      - name: "value"
+        construction: "B/M ratio decile spread"
+      - name: "momentum"
+        construction: "12-1 month return decile spread"
+      - name: "quality"
+        construction: "ROE + low leverage decile spread"
+      - name: "low_vol"
+        construction: "252-day volatility decile spread"
+      - name: "size"
+        construction: "Market cap decile spread"
+    regression:
+      window: 60 # trading days
+      method: "rolling_ols"
+      min_observations: 40
+
+  correlation_anomaly_detector:
+    windows:
+      short: 30
+      medium: 60
+      long: 90
+    z_score_threshold: 2.5
+    pairs:
+      - ["SPX", "TLT"]
+      - ["SPX", "GLD"]
+      - ["DXY", "WTI"]
+      - ["SPX", "VIX"]
+      - ["TLT", "GLD"]
+      - ["VIX", "TLT"]
+
+# ==============================================================================
+# Meta-Learning Parameters
+# ==============================================================================
+meta_learning:
+  performance_tracking:
+    evaluation_window: 20 # trading days
+    accuracy_threshold: 0.75
+
+  recalibration:
+    triggers:
+      - name: "high_error_rate"
+        threshold: 0.25 # 25% error rate
+        lookback_days: 10
+      - name: "persistent_disagreement"
+        threshold: 0.70
+        min_days: 10
+      - name: "regime_instability"
+        max_flips: 3
+        lookback_days: 5
+
+    actions:
+      retrain_window: 756 # 3 years of data
+      incremental_update: true
+      notify_user: true
+
+# ==============================================================================
+# Backtesting Parameters
+# ==============================================================================
+backtesting:
+  validation_method: "walk_forward"
+  initial_train_window: 756 # 3 years
+  test_window: 63 # 1 quarter
+  step_size: 21 # 1 month
+
+  metrics:
+    - "regime_accuracy"
+    - "transition_detection_lead_time"
+    - "sharpe_ratio_improvement"
+    - "false_positive_rate"
+
+  benchmarks:
+    - "static_regime" # Always assume one regime
+    - "naive_forecast" # Yesterday's regime continues

@@ -1,0 +1,210 @@
+# ==============================================================================
+# AMRCAIS Configuration: Data Sources
+# ==============================================================================
+# Defines all data sources, API endpoints, fallback logic, and asset mappings.
+# Priority order: FRED API → yfinance → Alpha Vantage → cached data
+# ==============================================================================
+
+data_sources:
+  primary:
+    name: "FRED"
+    api_base_url: "https://api.stlouisfed.org/fred"
+    rate_limit_per_minute: 120
+    requires_api_key: true
+    env_var_key: "FRED_API_KEY"
+
+  secondary:
+    name: "yfinance"
+    api_base_url: null # Uses Yahoo Finance API internally
+    rate_limit_per_minute: 2000
+    requires_api_key: false
+
+  tertiary:
+    name: "Alpha Vantage"
+    api_base_url: "https://www.alphavantage.co/query"
+    rate_limit_per_minute: 5 # Free tier
+    requires_api_key: true
+    env_var_key: "ALPHAVANTAGE_API_KEY"
+
+# ==============================================================================
+# Asset Definitions
+# ==============================================================================
+assets:
+  equities:
+    SPX:
+      description: "S&P 500 Index"
+      yfinance_ticker: "^GSPC"
+      fred_series: "SP500"
+      alpha_vantage_symbol: "SPY"
+      data_start: "2000-01-01"
+      validation:
+        min_price: 100
+        max_daily_change_pct: 15
+
+  bonds:
+    TLT:
+      description: "iShares 20+ Year Treasury Bond ETF"
+      yfinance_ticker: "TLT"
+      fred_series: null
+      alpha_vantage_symbol: "TLT"
+      data_start: "2002-07-30"
+      validation:
+        min_price: 50
+        max_daily_change_pct: 10
+
+    IEF:
+      description: "iShares 7-10 Year Treasury Bond ETF"
+      yfinance_ticker: "IEF"
+      fred_series: null
+      alpha_vantage_symbol: "IEF"
+      data_start: "2002-07-30"
+      validation:
+        min_price: 50
+        max_daily_change_pct: 8
+
+  commodities:
+    GLD:
+      description: "SPDR Gold Trust"
+      yfinance_ticker: "GLD"
+      fred_series: null
+      alpha_vantage_symbol: "GLD"
+      data_start: "2004-11-18"
+      validation:
+        min_price: 50
+        max_daily_change_pct: 10
+
+    WTI:
+      description: "West Texas Intermediate Crude Oil"
+      yfinance_ticker: "CL=F"
+      fred_series: "DCOILWTICO"
+      alpha_vantage_symbol: "USO"
+      data_start: "2000-01-01"
+      validation:
+        min_price: 0 # Can go negative (2020)
+        max_daily_change_pct: 30
+
+  currencies:
+    DXY:
+      description: "US Dollar Index"
+      yfinance_ticker: "DX-Y.NYB"
+      fred_series: "DTWEXBGS"
+      alpha_vantage_symbol: "UUP"
+      data_start: "2000-01-01"
+      validation:
+        min_price: 70
+        max_daily_change_pct: 5
+
+  volatility:
+    VIX:
+      description: "CBOE Volatility Index"
+      yfinance_ticker: "^VIX"
+      fred_series: "VIXCLS"
+      alpha_vantage_symbol: null
+      data_start: "2000-01-01"
+      validation:
+        min_price: 5
+        max_daily_change_pct: 100
+
+# ==============================================================================
+# Yield Curve Data
+# ==============================================================================
+yield_curve:
+  source: "FRED"
+  series:
+    DGS1MO: "1 Month Treasury Rate"
+    DGS3MO: "3 Month Treasury Rate"
+    DGS6MO: "6 Month Treasury Rate"
+    DGS1: "1 Year Treasury Rate"
+    DGS2: "2 Year Treasury Rate"
+    DGS3: "3 Year Treasury Rate"
+    DGS5: "5 Year Treasury Rate"
+    DGS7: "7 Year Treasury Rate"
+    DGS10: "10 Year Treasury Rate"
+    DGS20: "20 Year Treasury Rate"
+    DGS30: "30 Year Treasury Rate"
+
+# ==============================================================================
+# Macro Economic Data
+# ==============================================================================
+macro_data:
+  employment:
+    NFP:
+      description: "Nonfarm Payrolls"
+      fred_series: "PAYEMS"
+      frequency: "monthly"
+      release_lag_days: 7
+
+    UNRATE:
+      description: "Unemployment Rate"
+      fred_series: "UNRATE"
+      frequency: "monthly"
+      release_lag_days: 7
+
+  inflation:
+    CPI:
+      description: "Consumer Price Index"
+      fred_series: "CPIAUCSL"
+      frequency: "monthly"
+      release_lag_days: 14
+
+    CORE_PCE:
+      description: "Core PCE Price Index"
+      fred_series: "PCEPILFE"
+      frequency: "monthly"
+      release_lag_days: 30
+
+    PPI:
+      description: "Producer Price Index"
+      fred_series: "PPIACO"
+      frequency: "monthly"
+      release_lag_days: 14
+
+  activity:
+    GDP:
+      description: "Real Gross Domestic Product"
+      fred_series: "GDPC1"
+      frequency: "quarterly"
+      release_lag_days: 30
+
+    PMI:
+      description: "ISM Manufacturing PMI"
+      fred_series: "MANEMP"
+      frequency: "monthly"
+      release_lag_days: 1
+
+    RETAIL_SALES:
+      description: "Retail Sales"
+      fred_series: "RSXFS"
+      frequency: "monthly"
+      release_lag_days: 14
+
+  monetary:
+    FED_FUNDS:
+      description: "Federal Funds Effective Rate"
+      fred_series: "FEDFUNDS"
+      frequency: "daily"
+      release_lag_days: 0
+
+# ==============================================================================
+# Data Pipeline Settings
+# ==============================================================================
+pipeline:
+  cache:
+    enabled: true
+    max_age_days: 7
+    storage_path: "data/cache"
+
+  database:
+    type: "sqlite"
+    path: "data/amrcais.db"
+
+  validation:
+    check_missing_values: true
+    check_price_outliers: true
+    check_corporate_actions: true
+    max_missing_pct: 5
+
+  historical:
+    default_start_date: "2010-01-01"
+    minimum_history_years: 10
+    required_assets: ["SPX", "TLT", "GLD", "DXY", "WTI", "VIX"]
