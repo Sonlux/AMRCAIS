@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import logging
 
 import pandas as pd
@@ -353,7 +353,3 @@ class AnalyticalModule(ABC):
             f"{self.name}(regime={self.current_regime}, "
             f"confidence={self.regime_confidence:.2f})"
         )
-
-
-# Import Tuple for type hints
-from typing import Tuple

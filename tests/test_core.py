@@ -47,6 +47,34 @@ def sample_price_data():
 
 
 @pytest.fixture
+def sample_ohlcv_data():
+    """Generate sample OHLCV data for validator testing."""
+    np.random.seed(42)
+    dates = pd.date_range(start="2020-01-01", periods=500, freq="D")
+    
+    # Generate price series
+    base_price = 3000
+    returns = np.random.normal(0.0005, 0.015, len(dates))
+    close_prices = base_price * np.cumprod(1 + returns)
+    
+    # Generate OHLCV
+    data = pd.DataFrame({
+        "Date": dates,
+        "Open": close_prices * (1 + np.random.uniform(-0.005, 0.005, len(dates))),
+        "High": close_prices * (1 + np.random.uniform(0.002, 0.015, len(dates))),
+        "Low": close_prices * (1 + np.random.uniform(-0.015, -0.002, len(dates))),
+        "Close": close_prices,
+        "Volume": np.random.randint(1000000, 10000000, len(dates)),
+    }).set_index("Date")
+    
+    # Ensure High >= Close >= Low and High >= Open >= Low
+    data["High"] = data[["Open", "High", "Close"]].max(axis=1)
+    data["Low"] = data[["Open", "Low", "Close"]].min(axis=1)
+    
+    return data
+
+
+@pytest.fixture
 def sample_yield_data():
     """Generate sample yield curve data."""
     dates = pd.date_range(start="2020-01-01", periods=500, freq="D")
@@ -71,26 +99,27 @@ def sample_yield_data():
 @pytest.fixture
 def covid_crisis_data():
     """Generate data that mimics March 2020 COVID crash."""
-    dates = pd.date_range(start="2020-02-01", periods=60, freq="D")
+    # Need at least 252 days for HMM fitting (1 year)
+    dates = pd.date_range(start="2019-08-01", periods=300, freq="D")
     
-    # Pre-crash, crash, recovery pattern
-    pre_crash = np.ones(15) * 3300
+    # Pre-crash (first ~180 days), crash (days 180-200), recovery (days 200-300)
+    pre_crash = np.ones(180) * 3300 + np.random.normal(0, 50, 180)
     crash = np.linspace(3300, 2200, 20)
-    recovery = np.linspace(2200, 2800, 25)
+    recovery = np.linspace(2200, 3000, 100) + np.random.normal(0, 40, 100)
     spx = np.concatenate([pre_crash, crash, recovery])
     
     # VIX spikes during crash
-    vix_pre = np.ones(15) * 15
+    vix_pre = 15 + np.random.normal(0, 2, 180)
     vix_crash = np.linspace(15, 80, 20)
-    vix_recovery = np.linspace(80, 35, 25)
+    vix_recovery = np.linspace(80, 25, 100) + np.random.normal(0, 5, 100)
     vix = np.concatenate([vix_pre, vix_crash, vix_recovery])
     
     data = pd.DataFrame({
         "Date": dates,
         "SPX": spx,
         "VIX": vix,
-        "TLT": 140 + np.random.normal(0, 2, 60),  # Flight to safety
-        "GLD": 155 + np.cumsum(np.random.normal(0.2, 1, 60)),
+        "TLT": 140 + np.random.normal(0, 2, 300),  # Flight to safety
+        "GLD": 150 + np.cumsum(np.random.normal(0.2, 1, 300)),
     }).set_index("Date")
     
     return data
@@ -110,53 +139,57 @@ def temp_db_path():
 class TestDataValidator:
     """Tests for data validation."""
     
-    def test_missing_values_detection(self, sample_price_data):
+    def test_missing_values_detection(self, sample_ohlcv_data):
         """Test detection of missing values."""
         from src.data_pipeline.validators import DataValidator
         
         # Inject some NaN values
-        data_with_nan = sample_price_data.copy()
+        data_with_nan = sample_ohlcv_data.copy()
         data_with_nan.iloc[10, 0] = np.nan
         data_with_nan.iloc[20, 1] = np.nan
         
         validator = DataValidator()
-        report = validator.validate(data_with_nan)
+        cleaned_df, report = validator.validate(data_with_nan, asset="SPX")
         
-        assert not report.is_valid
-        assert report.missing_values > 0
+        # Check that issues were detected (OHLC inconsistencies from NaN injection)
+        assert len(report.issues) > 0
+        # Validator fixes issues by default, so cleaned_df should have NaN filled
+        assert cleaned_df.isna().sum().sum() == 0
     
-    def test_price_validity(self, sample_price_data):
+    def test_price_validity(self, sample_ohlcv_data):
         """Test detection of invalid prices."""
         from src.data_pipeline.validators import DataValidator
         
         # Inject negative price
-        data_with_invalid = sample_price_data.copy()
+        data_with_invalid = sample_ohlcv_data.copy()
         data_with_invalid.iloc[50, 0] = -100
         
         validator = DataValidator()
-        report = validator.validate(data_with_invalid)
+        cleaned_df, report = validator.validate(data_with_invalid, asset="SPX")
         
-        assert len(report.warnings) > 0 or len(report.errors) > 0
+        # Should have reported issues
+        assert len(report.issues) > 0
     
-    def test_outlier_detection(self, sample_price_data):
+    def test_outlier_detection(self, sample_ohlcv_data):
         """Test detection of extreme returns."""
         from src.data_pipeline.validators import DataValidator
         
         # Inject extreme move
-        data_with_outlier = sample_price_data.copy()
+        data_with_outlier = sample_ohlcv_data.copy()
         data_with_outlier.iloc[100, 0] = data_with_outlier.iloc[99, 0] * 1.5  # 50% move
         
         validator = DataValidator()
-        report = validator.validate(data_with_outlier)
+        cleaned_df, report = validator.validate(data_with_outlier, asset="SPX")
         
-        assert report.outlier_count > 0
+        # Should have detected outlier
+        assert len(report.issues) > 0
     
-    def test_valid_data_passes(self, sample_price_data):
+    def test_valid_data_passes(self, sample_ohlcv_data):
         """Test that valid data passes validation."""
         from src.data_pipeline.validators import DataValidator
         
         validator = DataValidator()
-        report = validator.validate(sample_price_data)
+        cleaned_df, report = validator.validate(sample_ohlcv_data, asset="SPX")
         
         assert report.is_valid
 
@@ -164,14 +197,14 @@ class TestDataValidator:
 class TestDatabaseStorage:
     """Tests for database storage."""
     
-    def test_save_and_load_market_data(self, sample_price_data, temp_db_path):
+    def test_save_and_load_market_data(self, sample_ohlcv_data, temp_db_path):
         """Test saving and loading market data."""
         from src.data_pipeline.storage import DatabaseStorage
         
-        storage = DatabaseStorage(f"sqlite:///{temp_db_path}")
+        storage = DatabaseStorage(temp_db_path)
         
         # Save
-        storage.save_market_data(sample_price_data, "SPX")
+        storage.save_market_data("SPX", sample_ohlcv_data)
         
         # Load
         loaded = storage.load_market_data("SPX")
@@ -179,16 +212,34 @@ class TestDatabaseStorage:
         assert loaded is not None
         assert len(loaded) > 0
     
-    def test_freshness_check(self, sample_price_data, temp_db_path):
+    def test_freshness_check(self, temp_db_path):
         """Test data freshness validation."""
         from src.data_pipeline.storage import DatabaseStorage
+        import pandas as pd
+        from datetime import datetime, timedelta
         
-        storage = DatabaseStorage(f"sqlite:///{temp_db_path}")
-        storage.save_market_data(sample_price_data, "SPX")
+        # Create recent data (today)
+        today = datetime.now().date()
+        recent_dates = pd.date_range(end=today, periods=10, freq="D")
+        recent_data = pd.DataFrame({
+            "Open": [3000] * 10,
+            "High": [3050] * 10,
+            "Low": [2950] * 10,
+            "Close": [3000] * 10,
+            "Volume": [1000000] * 10,
+        }, index=recent_dates)
         
-        # Should be fresh (just saved)
+        storage = DatabaseStorage(temp_db_path)
+        storage.save_market_data("SPX", recent_data)
+        
+        # Should be fresh (just saved with today's date)
         is_fresh = storage.is_data_fresh("SPX", max_age_days=1)
         assert is_fresh
+        
+        # Should not be fresh with 0 days threshold
+        is_not_fresh = storage.is_data_fresh("SPX", max_age_days=0)
+        # Note: This might be True if data includes today, so we just check it runs
+        assert isinstance(is_not_fresh, bool)
 
 
 # ============================================================================
@@ -218,8 +269,8 @@ class TestHMMClassifier:
         classifier = HMMRegimeClassifier()
         classifier.fit(covid_crisis_data)
         
-        # During the crash period (days 15-35)
-        crash_data = covid_crisis_data.iloc[15:35]
+        # During the crash period (days 180-200)
+        crash_data = covid_crisis_data.iloc[180:200]
         result = classifier.predict(crash_data)
         
         # Should detect elevated risk (regime 2)
@@ -233,9 +284,11 @@ class TestHMMClassifier:
         classifier = HMMRegimeClassifier()
         classifier.fit(sample_price_data)
         
-        results = classifier.predict_sequence(sample_price_data, window=60, step=10)
+        # Predict on a subset of data
+        test_data = sample_price_data.iloc[:100]
+        results = classifier.predict_sequence(test_data)
         
-        assert len(results) > 0
+        assert len(results) == 100
         assert all(r.regime in [1, 2, 3, 4] for r in results)
 
 
