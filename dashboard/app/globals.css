@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* ─── AMRCAIS Dark Theme ─────────────────────────────────────── */
+
+:root {
+  --background: #0a0a0f;
+  --surface: #12121a;
+  --surface-elevated: #1a1a28;
+  --border: #2a2a3a;
+  --foreground: #e4e4ef;
+  --text-secondary: #8888a0;
+  --text-muted: #555568;
+
+  /* Regime colors */
+  --regime-1: #22c55e;
+  --regime-2: #ef4444;
+  --regime-3: #f59e0b;
+  --regime-4: #3b82f6;
+
+  /* Signal colors */
+  --signal-bullish: #22c55e;
+  --signal-bearish: #ef4444;
+  --signal-neutral: #6b7280;
+  --signal-cautious: #f59e0b;
+
+  /* Accent */
+  --accent: #6366f1;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-regime-1: var(--regime-1);
+  --color-regime-2: var(--regime-2);
+  --color-regime-3: var(--regime-3);
+  --color-regime-4: var(--regime-4);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Skeleton animation ─────────────────────────────────────── */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-elevated) 50%,
+    var(--surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}

@@ -9,6 +9,7 @@ Swagger docs available at:
 """
 
 import logging
+import os
 import time
 from datetime import datetime
 
@@ -16,6 +17,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import lifespan, get_startup_time
+from api.middleware import (
+    RateLimitMiddleware,
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+    register_exception_handlers,
+)
 from api.routes import regime, modules, data, meta, backtest
 from api.schemas import HealthCheckResponse, StatusResponse
 from api.dependencies import get_system
@@ -34,19 +41,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ─── Security ─────────────────────────────────────────────────────
+# Global exception handlers — prevent stack trace leakage in responses
+register_exception_handlers(app)
+
+# Security headers (X-Content-Type-Options, X-Frame-Options, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Rate limiting — 120 requests / 60 s per IP, burst limit 30 / 5 s
+app.add_middleware(RateLimitMiddleware, max_requests=120, window_seconds=60)
+
+# Request body size limit — 1 MB
+app.add_middleware(RequestSizeLimitMiddleware)
+
 # ─── CORS ─────────────────────────────────────────────────────────
-# Allow the Next.js dev server (port 3000) and any localhost origin.
+# Origins sourced from env var for production flexibility.
+_cors_origins = os.getenv(
+    "AMRCAIS_CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001",
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-    ],
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ─── Routers ──────────────────────────────────────────────────────

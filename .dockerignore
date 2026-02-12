@@ -1,0 +1,48 @@
+# ─── Dependencies ─────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ─── Virtual envs ────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ─── Node / Dashboard ────────────────────────────────────────────
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+
+# ─── IDE ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Git ─────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ─── Tests / Dev ─────────────────────────────────────────────────
+tests/
+test_*.txt
+.pytest_cache/
+htmlcov/
+.coverage
+*.md
+!README.md
+
+# ─── Secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+*.key
+*.pem

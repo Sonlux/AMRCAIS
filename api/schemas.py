@@ -326,3 +326,9 @@ class ErrorResponse(BaseModel):
 
     error: str
     detail: Optional[str] = None
+
+
+# ─── Validation Constants ─────────────────────────────────────────
+
+VALID_STRATEGIES = {"regime_following", "momentum", "mean_reversion"}
+VALID_ASSETS = {"SPX", "TLT", "GLD", "DXY", "WTI", "VIX"}

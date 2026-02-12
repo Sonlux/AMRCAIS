@@ -240,6 +240,43 @@ def _run_regime_following_backtest(
 @router.post("/run", response_model=BacktestResultResponse)
 async def run_backtest(req: BacktestRequest):
     """Execute a backtest with the given parameters."""
+    # ── Input validation ──────────────────────────────────────────
+    from api.schemas import VALID_STRATEGIES, VALID_ASSETS
+
+    if req.strategy not in VALID_STRATEGIES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid strategy '{req.strategy}'. "
+                   f"Valid: {sorted(VALID_STRATEGIES)}",
+        )
+    invalid_assets = [a for a in req.assets if a.upper() not in VALID_ASSETS]
+    if invalid_assets:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid assets: {invalid_assets}. "
+                   f"Valid: {sorted(VALID_ASSETS)}",
+        )
+    if req.initial_capital <= 0 or req.initial_capital > 1_000_000_000:
+        raise HTTPException(
+            status_code=422,
+            detail="initial_capital must be between 0 and 1,000,000,000",
+        )
+    # Validate dates
+    from datetime import datetime as _dt
+    try:
+        s_dt = _dt.strptime(req.start_date, "%Y-%m-%d")
+        e_dt = _dt.strptime(req.end_date, "%Y-%m-%d")
+        if s_dt >= e_dt:
+            raise HTTPException(
+                status_code=422,
+                detail="start_date must be before end_date",
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid date format: {exc}. Use YYYY-MM-DD.",
+        )
+
     system = get_system()
 
     if not system._is_initialized:
