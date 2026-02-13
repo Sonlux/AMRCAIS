@@ -145,7 +145,6 @@ profile_*.txt
 CODEBASE_INDEX.md
 AMRCAIS_Master_Prompt.md
 AMRCAIS_Development_Rules.md
-AMCRAIS_PRD.md
 amrcais_prd.docx
 
 # ==============================================================================
@@ -191,3 +190,8 @@ dmypy.json
 # Streamlit
 # ==============================================================================
 .streamlit/secrets.toml
+
+# ==============================================================================
+# Internal Strategy / Planning Docs (never commit)
+# ==============================================================================
+no1.md
