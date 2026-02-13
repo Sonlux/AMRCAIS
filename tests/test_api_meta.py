@@ -7,6 +7,8 @@ Covers:
     GET /api/meta/weights/history     — Weight evolution over time
     GET /api/meta/recalibrations      — Recalibration event log
     GET /api/meta/health              — System health summary
+    GET /api/meta/accuracy            — Rolling classifier accuracy
+    GET /api/meta/disagreement        — Disagreement time-series
 """
 
 import pytest
@@ -196,3 +198,99 @@ class TestSystemHealth:
         data = api_client.get("/api/meta/health").json()
         assert data["system_status"] == "degraded"
         assert data["needs_recalibration"] is False
+
+
+# ─── Classifier Accuracy ─────────────────────────────────────────
+
+
+class TestClassifierAccuracy:
+    """GET /api/meta/accuracy"""
+
+    def test_returns_200(self, api_client):
+        resp = api_client.get("/api/meta/accuracy")
+        assert resp.status_code == 200
+
+    def test_has_classifiers_list(self, api_client):
+        data = api_client.get("/api/meta/accuracy").json()
+        assert "classifiers" in data
+        assert isinstance(data["classifiers"], list)
+        assert len(data["classifiers"]) >= 4
+
+    def test_has_series(self, api_client):
+        data = api_client.get("/api/meta/accuracy").json()
+        assert "series" in data
+        assert isinstance(data["series"], list)
+
+    def test_has_window(self, api_client):
+        data = api_client.get("/api/meta/accuracy").json()
+        assert "window" in data
+        assert isinstance(data["window"], int)
+
+    def test_custom_window(self, api_client):
+        resp = api_client.get("/api/meta/accuracy", params={"window": 60})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["window"] == 60
+
+    def test_series_entry_schema(self, api_client):
+        data = api_client.get("/api/meta/accuracy").json()
+        if data["series"]:
+            entry = data["series"][0]
+            assert "date" in entry
+            assert "accuracy" in entry
+            assert "classifier" in entry
+
+    def test_accuracy_values_in_range(self, api_client):
+        data = api_client.get("/api/meta/accuracy").json()
+        for entry in data["series"]:
+            assert 0.0 <= entry["accuracy"] <= 1.0
+
+    def test_fallback_when_no_meta_learner(self, api_client, mock_system):
+        """Even without meta_learner, should return synthetic data."""
+        mock_system.meta_learner = None
+        resp = api_client.get("/api/meta/accuracy")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["series"]) > 0
+
+
+# ─── Disagreement Time-Series ────────────────────────────────────
+
+
+class TestMetaDisagreement:
+    """GET /api/meta/disagreement"""
+
+    def test_returns_200(self, api_client):
+        resp = api_client.get("/api/meta/disagreement")
+        assert resp.status_code == 200
+
+    def test_has_series(self, api_client):
+        data = api_client.get("/api/meta/disagreement").json()
+        assert "series" in data
+        assert isinstance(data["series"], list)
+
+    def test_has_threshold(self, api_client):
+        data = api_client.get("/api/meta/disagreement").json()
+        assert "threshold" in data
+        assert isinstance(data["threshold"], float)
+
+    def test_series_entry_schema(self, api_client):
+        data = api_client.get("/api/meta/disagreement").json()
+        if data["series"]:
+            entry = data["series"][0]
+            assert "date" in entry
+            assert "disagreement" in entry
+
+    def test_disagreement_in_range(self, api_client):
+        data = api_client.get("/api/meta/disagreement").json()
+        for entry in data["series"]:
+            assert 0.0 <= entry["disagreement"] <= 1.0
+
+    def test_fallback_when_no_meta_learner(self, api_client, mock_system):
+        """Synthetic fallback when no ensemble history available."""
+        mock_system.meta_learner = None
+        mock_system.regime_ensemble._disagreement_history = []
+        resp = api_client.get("/api/meta/disagreement")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["series"]) > 0

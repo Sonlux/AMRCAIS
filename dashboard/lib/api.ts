@@ -13,11 +13,13 @@ import { API_BASE_URL } from "./constants";
 import type {
   BacktestRequest,
   BacktestResultResponse,
+  ClassifierAccuracyResponse,
   ClassifierVotesResponse,
   CorrelationMatrixResponse,
   DisagreementResponse,
   HealthCheckResponse,
   HealthResponse,
+  MacroDataResponse,
   ModuleAnalysisResponse,
   ModuleSummaryResponse,
   PerformanceResponse,
@@ -211,6 +213,11 @@ export const fetchPrices = (asset: string, start?: string, end?: string) => {
 export const fetchCorrelations = (window = 60) =>
   get<CorrelationMatrixResponse>(`/api/data/correlations?window=${window}`);
 
+export const fetchMacroData = (indicator: string) =>
+  get<MacroDataResponse>(
+    `/api/data/macro/${encodeURIComponent(sanitize(indicator, 30))}`,
+  );
+
 /* ─── Backtest ────────────────────────────────────────────── */
 
 export const runBacktest = (req: BacktestRequest) =>
@@ -228,6 +235,12 @@ export const fetchBacktestResult = (id: string) =>
 
 export const fetchPerformance = () =>
   get<PerformanceResponse>("/api/meta/performance");
+
+export const fetchClassifierAccuracy = (window = 30) =>
+  get<ClassifierAccuracyResponse>(`/api/meta/accuracy?window=${window}`);
+
+export const fetchMetaDisagreement = () =>
+  get<DisagreementResponse>("/api/meta/disagreement");
 
 export const fetchWeights = () => get<WeightsResponse>("/api/meta/weights");
 

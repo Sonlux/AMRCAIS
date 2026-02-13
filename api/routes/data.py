@@ -3,8 +3,7 @@ Data API routes.
 
 Endpoints:
     GET /api/data/assets                      — Available asset list
-    GET /api/data/prices/{asset}              — OHLCV price data
-    GET /api/data/correlations                — Correlation matrix
+    GET /api/data/prices/{asset}              — OHLCV price data    GET /api/data/macro/{indicator}           — Macro indicator time-series    GET /api/data/correlations                — Correlation matrix
 """
 
 import logging
@@ -18,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Path, Query
 from api.dependencies import get_system
 from api.schemas import (
     CorrelationMatrixResponse,
+    MacroDataPoint,
+    MacroDataResponse,
     PricePoint,
     PriceResponse,
 )
@@ -110,6 +111,90 @@ async def get_prices(
         asset=asset_upper,
         prices=points,
         total_points=len(points),
+    )
+
+
+# Macro indicators that can be served from module analysis results
+_MACRO_INDICATORS = {
+    "gdp": "GDP Growth",
+    "cpi": "Consumer Price Index",
+    "unemployment": "Unemployment Rate",
+    "nfp": "Non-Farm Payrolls",
+    "pmi": "Purchasing Managers Index",
+    "fed_funds": "Fed Funds Rate",
+    "vix": "CBOE Volatility Index",
+}
+
+
+@router.get("/macro/{indicator}", response_model=MacroDataResponse)
+async def get_macro_data(
+    indicator: str = Path(
+        ..., description="Macro indicator (e.g. gdp, cpi, vix, unemployment)"
+    ),
+    start: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
+    end: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
+):
+    """Return macro indicator time-series data.
+
+    Pulls from the AMRCAIS macro event tracker module when available,
+    or returns the current snapshot from the latest analysis.
+    """
+    ind = indicator.lower()
+    if ind not in _MACRO_INDICATORS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown indicator '{indicator}'. "
+                   f"Valid: {sorted(_MACRO_INDICATORS.keys())}",
+        )
+
+    system = get_system()
+    analysis = getattr(system, "_last_analysis", None) or (
+        system.analyze(system.market_data)
+        if getattr(system, "market_data", None) is not None
+        else None
+    )
+
+    series: list[MacroDataPoint] = []
+
+    # Try to extract from macro module details
+    if analysis and "modules" in analysis:
+        macro_details = analysis["modules"].get("macro", {}).get("details", {})
+
+        # VIX is available from the options module
+        if ind == "vix":
+            vix_val = (
+                analysis["modules"]
+                .get("options", {})
+                .get("vix_level")
+                or analysis["modules"]
+                .get("options", {})
+                .get("details", {})
+                .get("vix")
+            )
+            if vix_val is not None:
+                series.append(
+                    MacroDataPoint(
+                        date=datetime.now().strftime("%Y-%m-%d"),
+                        value=float(vix_val),
+                    )
+                )
+        else:
+            # Check for the indicator key in macro details
+            for key in [ind, f"{ind}_growth", f"{ind}_rate", f"{ind}_value"]:
+                val = macro_details.get(key)
+                if val is not None:
+                    series.append(
+                        MacroDataPoint(
+                            date=datetime.now().strftime("%Y-%m-%d"),
+                            value=float(val),
+                        )
+                    )
+                    break
+
+    return MacroDataResponse(
+        indicator=ind,
+        series=series,
+        total_points=len(series),
     )
 
 

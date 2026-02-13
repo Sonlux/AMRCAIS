@@ -32,16 +32,12 @@ describe("VolSurface3DChart", () => {
   });
 
   it("renders a Plotly chart", () => {
-    const { getByTestId } = render(
-      <VolSurface3DChart data={mockSurface} />,
-    );
+    const { getByTestId } = render(<VolSurface3DChart data={mockSurface} />);
     expect(getByTestId("plotly-mock")).toBeInTheDocument();
   });
 
   it("uses surface trace type", () => {
-    const { getByTestId } = render(
-      <VolSurface3DChart data={mockSurface} />,
-    );
+    const { getByTestId } = render(<VolSurface3DChart data={mockSurface} />);
     const traces = JSON.parse(
       getByTestId("plotly-mock").getAttribute("data-traces") || "[]",
     );
@@ -49,9 +45,7 @@ describe("VolSurface3DChart", () => {
   });
 
   it("passes moneyness as x-axis", () => {
-    const { getByTestId } = render(
-      <VolSurface3DChart data={mockSurface} />,
-    );
+    const { getByTestId } = render(<VolSurface3DChart data={mockSurface} />);
     const traces = JSON.parse(
       getByTestId("plotly-mock").getAttribute("data-traces") || "[]",
     );
@@ -59,9 +53,7 @@ describe("VolSurface3DChart", () => {
   });
 
   it("passes expiry days as y-axis", () => {
-    const { getByTestId } = render(
-      <VolSurface3DChart data={mockSurface} />,
-    );
+    const { getByTestId } = render(<VolSurface3DChart data={mockSurface} />);
     const traces = JSON.parse(
       getByTestId("plotly-mock").getAttribute("data-traces") || "[]",
     );
@@ -69,9 +61,7 @@ describe("VolSurface3DChart", () => {
   });
 
   it("passes iv_grid as z-axis", () => {
-    const { getByTestId } = render(
-      <VolSurface3DChart data={mockSurface} />,
-    );
+    const { getByTestId } = render(<VolSurface3DChart data={mockSurface} />);
     const traces = JSON.parse(
       getByTestId("plotly-mock").getAttribute("data-traces") || "[]",
     );
@@ -80,9 +70,7 @@ describe("VolSurface3DChart", () => {
 
   it("handles different regimes", () => {
     const riskOnSurface = { ...mockSurface, regime: 1 };
-    const { container } = render(
-      <VolSurface3DChart data={riskOnSurface} />,
-    );
+    const { container } = render(<VolSurface3DChart data={riskOnSurface} />);
     expect(container).toBeTruthy();
   });
 });

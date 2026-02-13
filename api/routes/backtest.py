@@ -20,8 +20,10 @@ from api.dependencies import get_system
 from api.schemas import (
     BacktestRequest,
     BacktestResultResponse,
+    DrawdownPoint,
     EquityPoint,
     RegimeReturnEntry,
+    TradeLogEntry,
 )
 from src.regime_detection.base import REGIME_NAMES
 
@@ -30,6 +32,28 @@ router = APIRouter()
 
 # In-memory backtest result store (production would use a DB)
 _backtest_store: Dict[str, BacktestResultResponse] = {}
+
+# Regime-based allocations (SPX, GLD, TLT weights)
+_REGIME_ALLOC = {
+    1: {"SPX": 0.60, "GLD": 0.20, "TLT": 0.20},
+    2: {"SPX": 0.10, "GLD": 0.30, "TLT": 0.60},
+    3: {"SPX": 0.10, "GLD": 0.50, "TLT": 0.40},
+    4: {"SPX": 0.70, "GLD": 0.10, "TLT": 0.20},
+}
+
+
+def _compute_drawdown(
+    equity_curve: List[float], dates: List[str]
+) -> List[DrawdownPoint]:
+    """Compute drawdown percentage series from equity values."""
+    dd_points: List[DrawdownPoint] = []
+    peak = equity_curve[0]
+    for i, val in enumerate(equity_curve):
+        if val > peak:
+            peak = val
+        dd_pct = -((peak - val) / peak) * 100 if peak > 0 else 0.0
+        dd_points.append(DrawdownPoint(date=dates[i], drawdown=round(dd_pct, 2)))
+    return dd_points
 
 
 def _generate_backtest_id(req: BacktestRequest) -> str:
@@ -52,14 +76,7 @@ def _run_regime_following_backtest(
     - Disinfl. Boom (4): 70 % equities, 10 % gold, 20 % bonds
     """
     bt_id = _generate_backtest_id(req)
-
-    # Regime-based allocations  (SPX, GLD, TLT weights)
-    alloc = {
-        1: {"SPX": 0.60, "GLD": 0.20, "TLT": 0.20},
-        2: {"SPX": 0.10, "GLD": 0.30, "TLT": 0.60},
-        3: {"SPX": 0.10, "GLD": 0.50, "TLT": 0.40},
-        4: {"SPX": 0.70, "GLD": 0.10, "TLT": 0.20},
-    }
+    alloc = _REGIME_ALLOC
 
     # Try to get per-asset returns
     close_cols: Dict[str, pd.Series] = {}
@@ -123,6 +140,27 @@ def _run_regime_following_backtest(
             if dd > max_dd:
                 max_dd = dd
 
+        # Drawdown curve
+        date_strs = [d.strftime("%Y-%m-%d") for d in dates]
+        dd_curve = _compute_drawdown(equity_curve, date_strs)
+
+        # Trade log — record regime transitions
+        trade_log: List[TradeLogEntry] = []
+        prev_regime = regimes_seq[0]
+        for i, r in enumerate(regimes_seq):
+            daily_ret_val = float(returns_arr[i - 1]) if 0 < i < len(returns_arr) + 1 else 0.0
+            if r != prev_regime or i == 0:
+                trade_log.append(TradeLogEntry(
+                    date=date_strs[i],
+                    action="rebalance",
+                    regime=r,
+                    regime_name=REGIME_NAMES.get(r, f"Regime {r}"),
+                    allocations=alloc.get(r, alloc[1]),
+                    portfolio_value=round(equity_curve[i], 2),
+                    daily_return=round(daily_ret_val * 100, 4),
+                ))
+            prev_regime = r
+
         # Regime-segmented returns
         regime_entries = []
         for r in range(1, 5):
@@ -149,6 +187,8 @@ def _run_regime_following_backtest(
             max_drawdown=round(max_dd * 100, 2),
             benchmark_return=round(bench_ret * 100, 2),
             equity_curve=eq_points,
+            drawdown_curve=dd_curve,
+            trade_log=trade_log,
             regime_returns=regime_entries,
             strategy=req.strategy,
             initial_capital=req.initial_capital,
@@ -205,6 +245,28 @@ def _run_regime_following_backtest(
         if dd > max_dd:
             max_dd = dd
 
+    # Drawdown curve
+    real_dates = [p.date for p in eq_points]
+    dd_curve = _compute_drawdown(equity_curve[1:], real_dates)
+
+    # Trade log — record regime transitions
+    trade_log: List[TradeLogEntry] = []
+    prev_regime = regimes_seq[0] if regimes_seq else 1
+    for i, r in enumerate(regimes_seq):
+        daily_ret_val = float(returns_arr[i]) if i < len(returns_arr) else 0.0
+        if r != prev_regime or i == 0:
+            dt_str = eq_points[i].date if i < len(eq_points) else ""
+            trade_log.append(TradeLogEntry(
+                date=dt_str,
+                action="rebalance",
+                regime=r,
+                regime_name=REGIME_NAMES.get(r, f"Regime {r}"),
+                allocations=alloc.get(r, alloc[1]),
+                portfolio_value=round(equity_curve[i + 1], 2),
+                daily_return=round(daily_ret_val * 100, 4),
+            ))
+        prev_regime = r
+
     # Regime returns
     regime_entries = []
     for r in range(1, 5):
@@ -231,6 +293,8 @@ def _run_regime_following_backtest(
         max_drawdown=round(max_dd * 100, 2),
         benchmark_return=0.0,
         equity_curve=eq_points,
+        drawdown_curve=dd_curve,
+        trade_log=trade_log,
         regime_returns=regime_entries,
         strategy=req.strategy,
         initial_capital=req.initial_capital,

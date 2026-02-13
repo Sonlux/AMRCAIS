@@ -208,6 +208,25 @@ class RegimeReturnEntry(BaseModel):
     hit_rate: float
 
 
+class DrawdownPoint(BaseModel):
+    """Single drawdown observation."""
+
+    date: str
+    drawdown: float  # negative pct from peak (e.g. -5.2)
+
+
+class TradeLogEntry(BaseModel):
+    """One allocation change in the backtest trade log."""
+
+    date: str
+    action: str  # e.g. "rebalance", "hold"
+    regime: int
+    regime_name: str
+    allocations: Dict[str, float]  # {"SPX": 0.60, "GLD": 0.20, …}
+    portfolio_value: float
+    daily_return: float
+
+
 class BacktestResultResponse(BaseModel):
     """Full backtest result."""
 
@@ -219,6 +238,8 @@ class BacktestResultResponse(BaseModel):
     max_drawdown: float
     benchmark_return: float
     equity_curve: List[EquityPoint]
+    drawdown_curve: List[DrawdownPoint] = Field(default_factory=list)
+    trade_log: List[TradeLogEntry] = Field(default_factory=list)
     regime_returns: List[RegimeReturnEntry]
     strategy: str
     initial_capital: float
@@ -326,6 +347,35 @@ class ErrorResponse(BaseModel):
 
     error: str
     detail: Optional[str] = None
+
+
+# ─── Macro Data Schema ────────────────────────────────────────────
+
+
+class MacroDataPoint(BaseModel):
+    """Single macro indicator observation."""
+
+    date: str
+    value: float
+
+
+class MacroDataResponse(BaseModel):
+    """Time-series of a single macro indicator."""
+
+    indicator: str
+    series: List[MacroDataPoint]
+    total_points: int
+
+
+# ─── Classifier Accuracy Schema ───────────────────────────────────
+
+
+class ClassifierAccuracyResponse(BaseModel):
+    """Rolling accuracy series for each classifier + ensemble."""
+
+    classifiers: List[str]
+    series: List[ClassifierAccuracyPoint]  # interleaved: each date has N entries
+    window: int = 30  # rolling window used
 
 
 # ─── Surface / 3D Chart Schemas ───────────────────────────────────

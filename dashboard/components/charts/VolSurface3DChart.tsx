@@ -53,7 +53,12 @@ export default function VolSurface3DChart({
         outlinewidth: 0,
       },
       contours: {
-        z: { show: true, usecolormap: true, highlightcolor: "#e4e4ef", project: { z: false } },
+        z: {
+          show: true,
+          usecolormap: true,
+          highlightcolor: "#e4e4ef",
+          project: { z: false },
+        },
       },
       hovertemplate:
         "Moneyness: %{x:.0%}<br>DTE: %{y}d<br>IV: %{z:.1f}%<extra></extra>",

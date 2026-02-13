@@ -10,9 +10,9 @@ import type { BacktestRequest, BacktestResultResponse } from "@/lib/types";
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
 import DataTable from "@/components/ui/DataTable";
-import { EquityCurveChart, RegimeReturnsChart } from "@/components/charts";
+import { EquityCurveChart, RegimeReturnsChart, DrawdownChart } from "@/components/charts";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { RegimeReturnEntry } from "@/lib/types";
+import type { RegimeReturnEntry, TradeLogEntry } from "@/lib/types";
 
 /* ─── TanStack Table column definitions ───────────────────── */
 
@@ -68,6 +68,61 @@ const regimeBreakdownColumns: ColumnDef<RegimeReturnEntry, unknown>[] = [
         {pct(getValue() as number)}
       </span>
     ),
+  },
+];
+
+const tradeLogColumns: ColumnDef<TradeLogEntry, unknown>[] = [
+  { accessorKey: "date", header: "Date" },
+  { accessorKey: "action", header: "Action" },
+  {
+    accessorKey: "regime_name",
+    header: "Regime",
+    cell: ({ row }) => (
+      <span
+        className="font-medium"
+        style={{ color: REGIME_COLORS[row.original.regime] ?? "#6b7280" }}
+      >
+        {row.original.regime_name}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "allocations",
+    header: "Allocations",
+    cell: ({ getValue }) => {
+      const alloc = getValue() as Record<string, number>;
+      return (
+        <span className="font-mono text-xs text-text-secondary">
+          {Object.entries(alloc)
+            .map(([k, v]) => `${k}: ${(v * 100).toFixed(0)}%`)
+            .join(", ")}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "portfolio_value",
+    header: "Portfolio Value",
+    cell: ({ getValue }) => (
+      <span className="font-mono">
+        ${(getValue() as number).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "daily_return",
+    header: "Daily Return",
+    cell: ({ getValue }) => {
+      const v = getValue() as number;
+      return (
+        <span
+          className="font-mono"
+          style={{ color: v >= 0 ? "#22c55e" : "#ef4444" }}
+        >
+          {pctRaw(v)}
+        </span>
+      );
+    },
   },
 ];
 
@@ -228,6 +283,16 @@ export default function BacktestPage() {
             <EquityCurveChart equityCurve={result.equity_curve} height={350} />
           </div>
 
+          {/* Drawdown chart */}
+          {result.drawdown_curve && result.drawdown_curve.length > 0 && (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+                Drawdown
+              </p>
+              <DrawdownChart series={result.drawdown_curve} height={200} />
+            </div>
+          )}
+
           {/* Returns by regime */}
           <div className="rounded-lg border border-border bg-surface p-4">
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
@@ -246,6 +311,19 @@ export default function BacktestPage() {
               data={result.regime_returns}
             />
           </div>
+
+          {/* Trade Log */}
+          {result.trade_log && result.trade_log.length > 0 && (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+                Trade Log ({result.trade_log.length} events)
+              </p>
+              <DataTable
+                columns={tradeLogColumns}
+                data={result.trade_log}
+              />
+            </div>
+          )}
         </>
       )}
 

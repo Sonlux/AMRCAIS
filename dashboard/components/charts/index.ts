@@ -13,3 +13,6 @@ export { default as LightweightChart } from "./LightweightChart";
 export { default as EquityCurveChart } from "./EquityCurveChart";
 export { default as YieldCurveSurfaceChart } from "./YieldCurveSurfaceChart";
 export { default as VolSurface3DChart } from "./VolSurface3DChart";
+export { default as AccuracyLineChart } from "./AccuracyLineChart";
+export { default as DrawdownChart } from "./DrawdownChart";
+export { default as DisagreementVsSpxChart } from "./DisagreementVsSpxChart";

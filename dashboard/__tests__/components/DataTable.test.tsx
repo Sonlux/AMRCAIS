@@ -61,9 +61,7 @@ describe("DataTable", () => {
 
   it("filters rows via global search", async () => {
     const user = userEvent.setup();
-    render(
-      <DataTable columns={columns} data={data} searchable />,
-    );
+    render(<DataTable columns={columns} data={data} searchable />);
 
     const input = screen.getByPlaceholderText("Search…");
     await user.type(input, "Beta");

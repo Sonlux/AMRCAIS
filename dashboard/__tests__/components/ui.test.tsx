@@ -76,7 +76,9 @@ describe("MetricsCard", () => {
   });
 
   it("renders subtitle when provided", () => {
-    render(<MetricsCard label="Total Return" value="24.5%" sub="Since inception" />);
+    render(
+      <MetricsCard label="Total Return" value="24.5%" sub="Since inception" />,
+    );
     expect(screen.getByText("Since inception")).toBeInTheDocument();
   });
 

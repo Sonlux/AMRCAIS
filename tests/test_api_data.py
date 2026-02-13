@@ -5,6 +5,7 @@ Covers:
     GET /api/data/assets                — Available asset list
     GET /api/data/prices/{asset}        — OHLCV price data
     GET /api/data/correlations          — Cross-asset correlation matrix
+    GET /api/data/macro/{indicator}     — Macro economic indicator data
 """
 
 import pytest
@@ -121,3 +122,49 @@ class TestCorrelationMatrix:
         assert len(matrix) == n
         for row in matrix:
             assert len(row) == n
+
+
+# ─── Macro Data ──────────────────────────────────────────────────
+
+VALID_INDICATORS = ["gdp", "cpi", "unemployment", "nfp", "pmi", "fed_funds", "vix"]
+
+
+class TestMacroData:
+    """GET /api/data/macro/{indicator}"""
+
+    @pytest.mark.parametrize("indicator", VALID_INDICATORS)
+    def test_valid_indicator_returns_200(self, api_client, indicator):
+        resp = api_client.get(f"/api/data/macro/{indicator}")
+        assert resp.status_code == 200
+
+    def test_response_has_indicator_name(self, api_client):
+        data = api_client.get("/api/data/macro/gdp").json()
+        assert data["indicator"] == "gdp"
+
+    def test_response_has_series_list(self, api_client):
+        data = api_client.get("/api/data/macro/gdp").json()
+        assert "series" in data
+        assert isinstance(data["series"], list)
+
+    def test_response_has_total_points(self, api_client):
+        data = api_client.get("/api/data/macro/gdp").json()
+        assert "total_points" in data
+        assert data["total_points"] == len(data["series"])
+
+    def test_invalid_indicator_returns_404(self, api_client):
+        resp = api_client.get("/api/data/macro/invalid_macro")
+        assert resp.status_code == 404
+
+    def test_invalid_indicator_error_detail(self, api_client):
+        data = api_client.get("/api/data/macro/invalid_macro").json()
+        assert "detail" in data
+        assert "Unknown indicator" in data["detail"]
+
+    def test_case_insensitive(self, api_client):
+        resp = api_client.get("/api/data/macro/GDP")
+        assert resp.status_code == 200
+        assert resp.json()["indicator"] == "gdp"
+
+    def test_vix_indicator(self, api_client):
+        data = api_client.get("/api/data/macro/vix").json()
+        assert data["indicator"] == "vix"

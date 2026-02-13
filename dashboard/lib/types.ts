@@ -114,6 +114,19 @@ export interface CorrelationMatrixResponse {
   window: number;
 }
 
+/* ─── Macro Data ─────────────────────────────────────── */
+
+export interface MacroDataPoint {
+  date: string;
+  value: number;
+}
+
+export interface MacroDataResponse {
+  indicator: string;
+  series: MacroDataPoint[];
+  total_points: number;
+}
+
 /* ─── Backtest ────────────────────────────────────────────── */
 
 export interface BacktestRequest {
@@ -148,13 +161,40 @@ export interface BacktestResultResponse {
   max_drawdown: number;
   benchmark_return: number;
   equity_curve: EquityPoint[];
+  drawdown_curve: DrawdownPoint[];
+  trade_log: TradeLogEntry[];
   regime_returns: RegimeReturnEntry[];
   strategy: string;
   initial_capital: number;
 }
 
-/* ─── Meta-Learning ───────────────────────────────────────── */
+export interface DrawdownPoint {
+  date: string;
+  drawdown: number;
+}
 
+export interface TradeLogEntry {
+  date: string;
+  action: string;
+  regime: number;
+  regime_name: string;
+  allocations: Record<string, number>;
+  portfolio_value: number;
+  daily_return: number;
+}
+
+/* ─── Meta-Learning ───────────────────────────────────────── */
+export interface ClassifierAccuracyPoint {
+  date: string;
+  accuracy: number;
+  classifier: string;
+}
+
+export interface ClassifierAccuracyResponse {
+  classifiers: string[];
+  series: ClassifierAccuracyPoint[];
+  window: number;
+}
 export interface PerformanceResponse {
   stability_score: number;
   stability_rating: string;

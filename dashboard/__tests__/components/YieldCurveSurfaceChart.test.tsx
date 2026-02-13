@@ -32,17 +32,13 @@ describe("YieldCurveSurfaceChart", () => {
   });
 
   it("renders a Plotly chart", () => {
-    const { getByTestId } = render(
-      <YieldCurveSurfaceChart data={mockData} />,
-    );
+    const { getByTestId } = render(<YieldCurveSurfaceChart data={mockData} />);
     const plot = getByTestId("plotly-mock");
     expect(plot).toBeInTheDocument();
   });
 
   it("passes yield data to traces", () => {
-    const { getByTestId } = render(
-      <YieldCurveSurfaceChart data={mockData} />,
-    );
+    const { getByTestId } = render(<YieldCurveSurfaceChart data={mockData} />);
     const plot = getByTestId("plotly-mock");
     const traces = JSON.parse(plot.getAttribute("data-traces") || "[]");
     // First trace should contain our yield values
@@ -50,9 +46,7 @@ describe("YieldCurveSurfaceChart", () => {
   });
 
   it("converts tenors to labels", () => {
-    const { getByTestId } = render(
-      <YieldCurveSurfaceChart data={mockData} />,
-    );
+    const { getByTestId } = render(<YieldCurveSurfaceChart data={mockData} />);
     const plot = getByTestId("plotly-mock");
     const traces = JSON.parse(plot.getAttribute("data-traces") || "[]");
     // 0.25 → "3M", 10 → "10Y"

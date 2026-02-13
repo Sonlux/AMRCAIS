@@ -7,6 +7,9 @@ import {
   fetchWeights,
   fetchWeightHistory,
   fetchRecalibrations,
+  fetchClassifierAccuracy,
+  fetchMetaDisagreement,
+  fetchPrices,
 } from "@/lib/api";
 import { STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
 import { pct, num, cn } from "@/lib/utils";
@@ -18,6 +21,8 @@ import {
   ClassifierWeightsChart,
   RegimeDistributionChart,
   WeightEvolutionChart,
+  AccuracyLineChart,
+  DisagreementVsSpxChart,
 } from "@/components/charts";
 
 export default function MetaPage() {
@@ -52,11 +57,32 @@ export default function MetaPage() {
     staleTime: STALE_TIME,
   });
 
+  const accuracyQ = useQuery({
+    queryKey: ["meta", "accuracy"],
+    queryFn: () => fetchClassifierAccuracy(30),
+    staleTime: STALE_TIME,
+  });
+
+  const disagreeQ = useQuery({
+    queryKey: ["meta", "disagreement"],
+    queryFn: fetchMetaDisagreement,
+    staleTime: STALE_TIME,
+  });
+
+  const spxQ = useQuery({
+    queryKey: ["data", "prices", "SPX"],
+    queryFn: () => fetchPrices("SPX"),
+    staleTime: STALE_TIME,
+  });
+
   const health = healthQ.data;
   const perf = perfQ.data;
   const weights = weightsQ.data;
   const weightHist = weightHistQ.data;
   const recalibrations = recalQ.data;
+  const accuracy = accuracyQ.data;
+  const disagree = disagreeQ.data;
+  const spxPrices = spxQ.data;
 
   return (
     <div className="space-y-6">
@@ -199,6 +225,20 @@ export default function MetaPage() {
         </div>
       </div>
 
+      {/* Classifier Accuracy Over Time */}
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+          Classifier Accuracy (30-day rolling)
+        </p>
+        {accuracy && accuracy.series.length > 0 ? (
+          <AccuracyLineChart data={accuracy} height={300} />
+        ) : accuracyQ.isError ? (
+          <ErrorState onRetry={() => accuracyQ.refetch()} />
+        ) : (
+          <ChartSkeleton height="h-64" />
+        )}
+      </div>
+
       {/* Weight history over time */}
       <div className="rounded-lg border border-border bg-surface p-4">
         <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
@@ -268,6 +308,24 @@ export default function MetaPage() {
           </p>
         ) : (
           <ChartSkeleton height="h-32" />
+        )}
+      </div>
+
+      {/* Disagreement vs SPX dual-axis chart */}
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+          Disagreement Index vs SPX Price
+        </p>
+        {disagree && disagree.series.length > 0 && spxPrices ? (
+          <DisagreementVsSpxChart
+            disagreement={disagree.series}
+            prices={spxPrices.prices}
+            height={320}
+          />
+        ) : disagreeQ.isError ? (
+          <ErrorState onRetry={() => disagreeQ.refetch()} />
+        ) : (
+          <ChartSkeleton height="h-64" />
         )}
       </div>
     </div>
