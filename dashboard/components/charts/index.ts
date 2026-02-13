@@ -11,3 +11,5 @@ export { default as RegimeDistributionChart } from "./RegimeDistributionChart";
 export { default as WeightEvolutionChart } from "./WeightEvolutionChart";
 export { default as LightweightChart } from "./LightweightChart";
 export { default as EquityCurveChart } from "./EquityCurveChart";
+export { default as YieldCurveSurfaceChart } from "./YieldCurveSurfaceChart";
+export { default as VolSurface3DChart } from "./VolSurface3DChart";

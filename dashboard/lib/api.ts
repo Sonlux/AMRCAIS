@@ -28,8 +28,10 @@ import type {
   SignalHistoryResponse,
   StatusResponse,
   TransitionMatrixResponse,
+  VolSurfaceDataResponse,
   WeightHistoryResponse,
   WeightsResponse,
+  YieldCurveDataResponse,
 } from "./types";
 
 /* ─── CSRF Token Management ────────────────────────────────── */
@@ -183,6 +185,14 @@ export const fetchModuleHistory = (name: string) =>
   get<SignalHistoryResponse>(
     `/api/modules/${encodeURIComponent(sanitize(name, 50))}/history`,
   );
+
+/* ─── Surface / 3D ────────────────────────────────────────── */
+
+export const fetchYieldCurveData = () =>
+  get<YieldCurveDataResponse>("/api/modules/yield_curve/curve");
+
+export const fetchVolSurface = () =>
+  get<VolSurfaceDataResponse>("/api/modules/options/surface");
 
 /* ─── Data ────────────────────────────────────────────────── */
 

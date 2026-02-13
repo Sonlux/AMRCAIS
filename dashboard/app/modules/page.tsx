@@ -6,6 +6,8 @@ import {
   fetchModuleSummary,
   fetchModuleAnalysis,
   fetchModuleHistory,
+  fetchYieldCurveData,
+  fetchVolSurface,
 } from "@/lib/api";
 import {
   MODULE_NAMES,
@@ -20,7 +22,11 @@ import { useQueryState } from "@/lib/hooks";
 import SignalCard from "@/components/ui/SignalCard";
 import ErrorState from "@/components/ui/ErrorState";
 import { CardSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
-import { SignalHistoryChart } from "@/components/charts";
+import {
+  SignalHistoryChart,
+  YieldCurveSurfaceChart,
+  VolSurface3DChart,
+} from "@/components/charts";
 
 const MODULE_KEYS = [
   "macro",
@@ -58,6 +64,21 @@ function ModulesContent() {
     queryKey: ["modules", "history", activeTab],
     queryFn: () => fetchModuleHistory(activeTab),
     staleTime: STALE_TIME,
+  });
+
+  /* — conditional 3D chart queries (only fire for relevant tabs) — */
+  const yieldCurveQ = useQuery({
+    queryKey: ["modules", "yield_curve", "curve"],
+    queryFn: fetchYieldCurveData,
+    staleTime: STALE_TIME,
+    enabled: activeTab === "yield_curve",
+  });
+
+  const volSurfaceQ = useQuery({
+    queryKey: ["modules", "options", "surface"],
+    queryFn: fetchVolSurface,
+    staleTime: STALE_TIME,
+    enabled: activeTab === "options",
   });
 
   const summary = summaryQ.data;
@@ -230,6 +251,50 @@ function ModulesContent() {
           </div>
         </div>
       </div>
+
+      {/* ── 3D / Surface charts (tab-conditional) ─────────────── */}
+
+      {activeTab === "yield_curve" && (
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+            Yield Curve Shape
+            {yieldCurveQ.data && (
+              <span className="ml-2 normal-case text-text-secondary">
+                — {yieldCurveQ.data.curve_shape}
+                {yieldCurveQ.data.slope_2_10 != null &&
+                  ` · 2s10s ${yieldCurveQ.data.slope_2_10 > 0 ? "+" : ""}${yieldCurveQ.data.slope_2_10.toFixed(2)}%`}
+              </span>
+            )}
+          </p>
+          {yieldCurveQ.data ? (
+            <YieldCurveSurfaceChart data={yieldCurveQ.data} height={360} />
+          ) : yieldCurveQ.isError ? (
+            <ErrorState onRetry={() => yieldCurveQ.refetch()} />
+          ) : (
+            <ChartSkeleton height="h-80" />
+          )}
+        </div>
+      )}
+
+      {activeTab === "options" && (
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+            Implied Volatility Surface
+            {volSurfaceQ.data && (
+              <span className="ml-2 normal-case text-text-secondary">
+                — ATM Vol (VIX): {volSurfaceQ.data.atm_vol.toFixed(1)}%
+              </span>
+            )}
+          </p>
+          {volSurfaceQ.data ? (
+            <VolSurface3DChart data={volSurfaceQ.data} height={440} />
+          ) : volSurfaceQ.isError ? (
+            <ErrorState onRetry={() => volSurfaceQ.refetch()} />
+          ) : (
+            <ChartSkeleton height="h-96" />
+          )}
+        </div>
+      )}
     </div>
   );
 }

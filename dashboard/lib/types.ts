@@ -200,6 +200,30 @@ export interface HealthResponse {
   adaptive_weights: Record<string, number> | null;
 }
 
+/* ─── Surface / 3D Charts ─────────────────────────────────── */
+
+export interface YieldCurveDataResponse {
+  tenors: number[];
+  yields: number[];
+  curve_shape: string;
+  slope_2_10: number | null;
+  slope_3m_10: number | null;
+  curvature: number | null;
+  regime: number;
+  regime_name: string;
+  timestamp: string;
+}
+
+export interface VolSurfaceDataResponse {
+  moneyness: number[];
+  expiry_days: number[];
+  iv_grid: number[][];
+  atm_vol: number;
+  regime: number;
+  regime_name: string;
+  timestamp: string;
+}
+
 /* ─── System ──────────────────────────────────────────────── */
 
 export interface StatusResponse {

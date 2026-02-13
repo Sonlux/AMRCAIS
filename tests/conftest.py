@@ -31,6 +31,16 @@ def _create_mock_system():
             "sensitivity": "medium",
         }
         mock_modules[name] = mod
+
+    # Yield curve module needs an interpolation method for the new endpoint
+    mock_modules["yield_curve"].interpolate_curve.return_value = {
+        0.25: 5.20, 0.5: 5.10, 1: 4.90, 2: 4.60, 3: 4.50,
+        4: 4.40, 5: 4.30, 6: 4.32, 7: 4.35, 8: 4.37,
+        9: 4.39, 10: 4.40, 15: 4.50, 20: 4.60, 25: 4.62,
+        30: 4.65,
+    }
+    mock_modules["yield_curve"].curve_history = []
+
     system.modules = mock_modules
 
     # -- Ensemble --
@@ -134,7 +144,19 @@ def _create_mock_system():
                     "explanation": "Curve flat",
                     "regime_context": "Watching closely",
                 },
-                "details": {"steepness": 0.1},
+                "details": {
+                    "steepness": 0.1,
+                    "yields": {
+                        "3M": 5.20, "6M": 5.10, "1Y": 4.90,
+                        "2Y": 4.60, "3Y": 4.50, "5Y": 4.30,
+                        "7Y": 4.35, "10Y": 4.40, "20Y": 4.60,
+                        "30Y": 4.65,
+                    },
+                    "curve_shape": "normal",
+                    "slope_2_10": -0.20,
+                    "slope_3m_10": -0.80,
+                    "curvature": 0.15,
+                },
             },
             "options": {
                 "signal": {
@@ -144,6 +166,7 @@ def _create_mock_system():
                     "explanation": "VIX elevated",
                     "regime_context": "Risk hedging advised",
                 },
+                "vix_level": 22.5,
                 "details": {"vix": 22.5},
             },
             "factors": {

@@ -328,6 +328,50 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
 
 
+# ─── Surface / 3D Chart Schemas ───────────────────────────────────
+
+
+class YieldCurveDataResponse(BaseModel):
+    """Yield curve snapshot with observed + interpolated points."""
+
+    tenors: List[float] = Field(
+        ..., description="Tenors in years (e.g. [0.25, 0.5, 1, 2, …])"
+    )
+    yields: List[float] = Field(
+        ..., description="Yield values corresponding to each tenor"
+    )
+    curve_shape: str = Field(
+        "normal", description="Classified shape: normal, flat, inverted, humped"
+    )
+    slope_2_10: Optional[float] = None
+    slope_3m_10: Optional[float] = None
+    curvature: Optional[float] = None
+    regime: int = 1
+    regime_name: str = ""
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class VolSurfaceDataResponse(BaseModel):
+    """Volatility surface grid for 3D rendering.
+
+    Grid convention: iv_grid[i][j] = IV for moneyness[j] at expiry_days[i].
+    """
+
+    moneyness: List[float] = Field(
+        ..., description="Moneyness levels (1.0 = ATM)"
+    )
+    expiry_days: List[int] = Field(
+        ..., description="Days to expiration for each row"
+    )
+    iv_grid: List[List[float]] = Field(
+        ..., description="2D IV grid [expiry_idx][moneyness_idx]"
+    )
+    atm_vol: float = Field(..., description="Current ATM vol (VIX proxy)")
+    regime: int = 1
+    regime_name: str = ""
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
 # ─── Validation Constants ─────────────────────────────────────────
 
 VALID_STRATEGIES = {"regime_following", "momentum", "mean_reversion"}
