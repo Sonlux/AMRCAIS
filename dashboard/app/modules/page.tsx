@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchModuleSummary,
@@ -10,18 +10,17 @@ import {
 import {
   MODULE_NAMES,
   SIGNAL_COLORS,
-  REGIME_COLORS,
   REGIME_NAMES,
   STALE_TIME,
   REFETCH_INTERVAL,
 } from "@/lib/constants";
 import { pct, cn } from "@/lib/utils";
+import { useQueryState } from "@/lib/hooks";
 
 import SignalCard from "@/components/ui/SignalCard";
-import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
 import { CardSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
-import PlotlyChart from "@/components/charts/PlotlyChart";
+import { SignalHistoryChart } from "@/components/charts";
 
 const MODULE_KEYS = [
   "macro",
@@ -32,7 +31,15 @@ const MODULE_KEYS = [
 ] as const;
 
 export default function ModulesPage() {
-  const [activeTab, setActiveTab] = useState<string>(MODULE_KEYS[0]);
+  return (
+    <Suspense>
+      <ModulesContent />
+    </Suspense>
+  );
+}
+
+function ModulesContent() {
+  const [activeTab, setActiveTab] = useQueryState("tab", MODULE_KEYS[0]);
 
   const summaryQ = useQuery({
     queryKey: ["modules", "summary"],
@@ -214,69 +221,7 @@ export default function ModulesPage() {
               Signal History — {MODULE_NAMES[activeTab] ?? activeTab}
             </p>
             {history && history.history.length > 0 ? (
-              <PlotlyChart
-                height={400}
-                data={[
-                  // Strength line
-                  {
-                    x: history.history.map((h) => h.date),
-                    y: history.history.map((h) => h.strength),
-                    type: "scatter",
-                    mode: "lines",
-                    name: "Strength",
-                    line: { color: "#3b82f6", width: 1.5 },
-                  },
-                  // Signal type as colored dots
-                  ...["bullish", "bearish", "neutral", "cautious"].map(
-                    (sig) => ({
-                      x: history.history
-                        .filter((h) => h.signal === sig)
-                        .map((h) => h.date),
-                      y: history.history
-                        .filter((h) => h.signal === sig)
-                        .map((h) => h.strength),
-                      type: "scatter" as const,
-                      mode: "markers" as const,
-                      name: sig,
-                      marker: {
-                        color: SIGNAL_COLORS[sig] ?? "#6b7280",
-                        size: 5,
-                      },
-                    }),
-                  ),
-                  // Regime background as secondary axis
-                  {
-                    x: history.history.map((h) => h.date),
-                    y: history.history.map((h) => h.regime),
-                    type: "scatter",
-                    mode: "lines",
-                    name: "Regime",
-                    yaxis: "y2",
-                    line: { color: "#555568", width: 1, dash: "dot" },
-                  },
-                ]}
-                layout={{
-                  showlegend: true,
-                  legend: {
-                    orientation: "h",
-                    y: -0.15,
-                    font: { size: 10 },
-                  },
-                  yaxis: {
-                    title: { text: "Strength", font: { size: 10 } },
-                    range: [0, 1],
-                  },
-                  yaxis2: {
-                    title: { text: "Regime", font: { size: 10 } },
-                    overlaying: "y",
-                    side: "right",
-                    tickvals: [1, 2, 3, 4],
-                    ticktext: ["R-On", "R-Off", "Stag", "DisBm"],
-                    range: [0.5, 4.5],
-                  },
-                  xaxis: { type: "date" },
-                }}
-              />
+              <SignalHistoryChart history={history.history} height={400} />
             ) : historyQ.isError ? (
               <ErrorState onRetry={() => historyQ.refetch()} />
             ) : (

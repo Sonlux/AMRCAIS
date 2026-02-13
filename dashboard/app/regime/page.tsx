@@ -14,13 +14,16 @@ import {
   STALE_TIME,
   REFETCH_INTERVAL,
 } from "@/lib/constants";
-import { pct, num } from "@/lib/utils";
-
-import RegimeBadge from "@/components/ui/RegimeBadge";
+import { pct } from "@/lib/utils";
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
 import { CardSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
 import PlotlyChart from "@/components/charts/PlotlyChart";
+import {
+  TransitionMatrixChart,
+  DisagreementSeriesChart,
+  RegimeStripChart,
+} from "@/components/charts";
 
 export default function RegimePage() {
   const regimeQ = useQuery({
@@ -150,36 +153,10 @@ export default function RegimePage() {
             Transition Matrix
           </p>
           {transitions ? (
-            <PlotlyChart
+            <TransitionMatrixChart
+              matrix={transitions.matrix}
+              regimeNames={transitions.regime_names}
               height={300}
-              data={[
-                {
-                  type: "heatmap",
-                  z: transitions.matrix,
-                  x: transitions.regime_names,
-                  y: transitions.regime_names,
-                  colorscale: [
-                    [0, "#0a0a0f"],
-                    [0.5, "#3b82f6"],
-                    [1, "#22c55e"],
-                  ],
-                  showscale: true,
-                  colorbar: {
-                    tickfont: { color: "#8888a0", size: 10 },
-                    len: 0.8,
-                  },
-                  hovertemplate:
-                    "From: %{y}<br>To: %{x}<br>Probability: %{z:.2%}<extra></extra>",
-                } as Plotly.Data,
-              ]}
-              layout={{
-                xaxis: { side: "bottom" as const, tickfont: { size: 10 } },
-                yaxis: {
-                  autorange: "reversed" as const,
-                  tickfont: { size: 10 },
-                },
-                margin: { t: 10, l: 100, r: 20, b: 80 },
-              }}
             />
           ) : transitionQ.isError ? (
             <ErrorState onRetry={() => transitionQ.refetch()} />
@@ -195,40 +172,10 @@ export default function RegimePage() {
           Disagreement Over Time
         </p>
         {disagreement ? (
-          <PlotlyChart
+          <DisagreementSeriesChart
+            series={disagreement.series}
+            threshold={disagreement.threshold}
             height={250}
-            data={[
-              {
-                x: disagreement.series.map((d) => d.date),
-                y: disagreement.series.map((d) => d.disagreement),
-                type: "scatter",
-                mode: "lines",
-                line: { color: "#8888a0", width: 1.5 },
-                fill: "tozeroy",
-                fillcolor: "rgba(136,136,160,0.06)",
-                name: "Disagreement",
-              },
-              {
-                x: [
-                  disagreement.series[0]?.date,
-                  disagreement.series[disagreement.series.length - 1]?.date,
-                ],
-                y: [disagreement.threshold, disagreement.threshold],
-                type: "scatter",
-                mode: "lines",
-                line: { color: "#ef4444", dash: "dash", width: 1 },
-                name: "Threshold",
-              },
-            ]}
-            layout={{
-              showlegend: true,
-              legend: { orientation: "h", y: -0.2, font: { size: 10 } },
-              yaxis: {
-                range: [0, 1],
-                title: { text: "Disagreement", font: { size: 10 } },
-              },
-              xaxis: { type: "date" },
-            }}
           />
         ) : disagreementQ.isError ? (
           <ErrorState onRetry={() => disagreementQ.refetch()} />
@@ -243,29 +190,7 @@ export default function RegimePage() {
           Regime History
         </p>
         {history ? (
-          <PlotlyChart
-            height={200}
-            data={[1, 2, 3, 4].map((rid) => ({
-              x: history.history.map((h) => h.date),
-              y: history.history.map((h) => (h.regime === rid ? rid : null)),
-              type: "scatter" as const,
-              mode: "markers" as const,
-              marker: { color: REGIME_COLORS[rid], size: 4 },
-              name: REGIME_NAMES[rid],
-              connectgaps: false,
-            }))}
-            layout={{
-              showlegend: true,
-              legend: { orientation: "h", y: -0.25, font: { size: 10 } },
-              yaxis: {
-                tickvals: [1, 2, 3, 4],
-                ticktext: Object.values(REGIME_NAMES),
-                tickfont: { size: 10 },
-              },
-              xaxis: { type: "date" },
-              margin: { t: 10, l: 120, r: 20, b: 50 },
-            }}
-          />
+          <RegimeStripChart history={history.history} height={200} />
         ) : historyQ.isError ? (
           <ErrorState onRetry={() => historyQ.refetch()} />
         ) : (

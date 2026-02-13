@@ -1,20 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchCorrelations, fetchAssets, fetchPrices } from "@/lib/api";
-import { TRACKED_ASSETS, STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
+import { fetchCorrelations, fetchAssets } from "@/lib/api";
+import { STALE_TIME } from "@/lib/constants";
 import { num, cn } from "@/lib/utils";
+import { useQueryNumber } from "@/lib/hooks";
 
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
-import { CardSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
-import PlotlyChart from "@/components/charts/PlotlyChart";
+import { ChartSkeleton } from "@/components/ui/Skeleton";
+import { CorrelationHeatmap, CorrelationPairsChart } from "@/components/charts";
 
 const WINDOW_OPTIONS = [20, 40, 60, 90, 120];
 
 export default function CorrelationsPage() {
-  const [window, setWindow] = useState(60);
+  return (
+    <Suspense>
+      <CorrelationsContent />
+    </Suspense>
+  );
+}
+
+function CorrelationsContent() {
+  const [window, setWindow] = useQueryNumber("window", 60);
 
   const corrQ = useQuery({
     queryKey: ["data", "correlations", window],
@@ -110,44 +119,10 @@ export default function CorrelationsPage() {
           Cross-Asset Correlation Matrix ({window}-day rolling)
         </p>
         {corr ? (
-          <PlotlyChart
+          <CorrelationHeatmap
+            assets={corr.assets}
+            matrix={corr.matrix}
             height={420}
-            data={[
-              {
-                type: "heatmap",
-                z: corr.matrix,
-                x: corr.assets,
-                y: corr.assets,
-                colorscale: [
-                  [0, "#ef4444"],
-                  [0.5, "#0a0a0f"],
-                  [1, "#22c55e"],
-                ],
-                zmin: -1,
-                zmax: 1,
-                showscale: true,
-                colorbar: {
-                  tickfont: { color: "#8888a0", size: 10 },
-                  title: {
-                    text: "Correlation",
-                    font: { size: 10, color: "#8888a0" },
-                  },
-                  len: 0.8,
-                },
-                hovertemplate: "%{y} × %{x}<br>ρ = %{z:.3f}<extra></extra>",
-              } as Plotly.Data,
-            ]}
-            layout={{
-              xaxis: {
-                tickfont: { size: 11, color: "#e4e4ef" },
-                side: "bottom",
-              },
-              yaxis: {
-                tickfont: { size: 11, color: "#e4e4ef" },
-                autorange: "reversed",
-              },
-              margin: { t: 10, l: 60, r: 20, b: 60 },
-            }}
           />
         ) : corrQ.isError ? (
           <ErrorState onRetry={() => corrQ.refetch()} />
@@ -162,48 +137,31 @@ export default function CorrelationsPage() {
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
             Strongest Correlations (Off-Diagonal)
           </p>
-          {(() => {
-            const pairs: { pair: string; value: number }[] = [];
-            for (let i = 0; i < corr.assets.length; i++) {
-              for (let j = i + 1; j < corr.assets.length; j++) {
-                pairs.push({
-                  pair: `${corr.assets[i]}/${corr.assets[j]}`,
-                  value: corr.matrix[i][j],
-                });
-              }
-            }
-            pairs.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-            const top = pairs.slice(0, 10);
-
-            return (
-              <PlotlyChart
-                height={250}
-                data={[
-                  {
-                    type: "bar",
-                    x: top.map((p) => p.pair),
-                    y: top.map((p) => p.value),
-                    marker: {
-                      color: top.map((p) =>
-                        p.value >= 0 ? "#22c55e" : "#ef4444",
-                      ),
-                    },
-                    hovertemplate: "%{x}<br>ρ = %{y:.3f}<extra></extra>",
-                  },
-                ]}
-                layout={{
-                  yaxis: {
-                    title: { text: "Correlation", font: { size: 10 } },
-                    range: [-1, 1],
-                  },
-                  margin: { t: 10, l: 50, r: 20, b: 80 },
-                  xaxis: { tickangle: -45, tickfont: { size: 10 } },
-                }}
-              />
-            );
-          })()}
+          <TopPairsBar assets={corr.assets} matrix={corr.matrix} />
         </div>
       )}
     </div>
   );
+}
+
+/** Compute top-N off-diagonal pairs sorted by |ρ| and render. */
+function TopPairsBar({
+  assets,
+  matrix,
+}: {
+  assets: string[];
+  matrix: number[][];
+}) {
+  const pairs = useMemo(() => {
+    const p: { pair: string; value: number }[] = [];
+    for (let i = 0; i < assets.length; i++) {
+      for (let j = i + 1; j < assets.length; j++) {
+        p.push({ pair: `${assets[i]}/${assets[j]}`, value: matrix[i][j] });
+      }
+    }
+    p.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+    return p.slice(0, 10);
+  }, [assets, matrix]);
+
+  return <CorrelationPairsChart pairs={pairs} height={250} />;
 }

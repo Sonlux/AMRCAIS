@@ -46,8 +46,9 @@ async function fetchCsrfToken(): Promise<string> {
   });
   if (!res.ok) throw new Error("Failed to obtain CSRF token");
   const data = await res.json();
-  _csrfToken = data.csrf_token;
-  return _csrfToken;
+  const token: string = data.csrf_token;
+  _csrfToken = token;
+  return token;
 }
 
 /**
@@ -174,10 +175,14 @@ export const fetchModuleSummary = () =>
   get<ModuleSummaryResponse>("/api/modules/summary");
 
 export const fetchModuleAnalysis = (name: string) =>
-  get<ModuleAnalysisResponse>(`/api/modules/${encodeURIComponent(sanitize(name, 50))}/analyze`);
+  get<ModuleAnalysisResponse>(
+    `/api/modules/${encodeURIComponent(sanitize(name, 50))}/analyze`,
+  );
 
 export const fetchModuleHistory = (name: string) =>
-  get<SignalHistoryResponse>(`/api/modules/${encodeURIComponent(sanitize(name, 50))}/history`);
+  get<SignalHistoryResponse>(
+    `/api/modules/${encodeURIComponent(sanitize(name, 50))}/history`,
+  );
 
 /* ─── Data ────────────────────────────────────────────────── */
 
@@ -188,7 +193,9 @@ export const fetchPrices = (asset: string, start?: string, end?: string) => {
   if (start && isValidDate(start)) params.set("start", sanitize(start));
   if (end && isValidDate(end)) params.set("end", sanitize(end));
   const qs = params.toString();
-  return get<PriceResponse>(`/api/data/prices/${encodeURIComponent(sanitize(asset, 10))}${qs ? `?${qs}` : ""}`);
+  return get<PriceResponse>(
+    `/api/data/prices/${encodeURIComponent(sanitize(asset, 10))}${qs ? `?${qs}` : ""}`,
+  );
 };
 
 export const fetchCorrelations = (window = 60) =>
@@ -203,7 +210,9 @@ export const fetchBacktestResults = () =>
   get<BacktestResultResponse[]>("/api/backtest/results");
 
 export const fetchBacktestResult = (id: string) =>
-  get<BacktestResultResponse>(`/api/backtest/results/${encodeURIComponent(sanitize(id, 50))}`);
+  get<BacktestResultResponse>(
+    `/api/backtest/results/${encodeURIComponent(sanitize(id, 50))}`,
+  );
 
 /* ─── Meta-Learning ───────────────────────────────────────── */
 

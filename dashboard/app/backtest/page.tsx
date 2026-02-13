@@ -2,20 +2,74 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { runBacktest, fetchBacktestResults, fetchAssets } from "@/lib/api";
-import {
-  REGIME_COLORS,
-  REGIME_NAMES,
-  STALE_TIME,
-  TRACKED_ASSETS,
-} from "@/lib/constants";
-import { pct, pctRaw, num, currency, cn } from "@/lib/utils";
+import { runBacktest, fetchBacktestResults } from "@/lib/api";
+import { REGIME_COLORS, STALE_TIME, TRACKED_ASSETS } from "@/lib/constants";
+import { pct, pctRaw, num } from "@/lib/utils";
 import type { BacktestRequest, BacktestResultResponse } from "@/lib/types";
 
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
-import { ChartSkeleton, CardSkeleton } from "@/components/ui/Skeleton";
-import PlotlyChart from "@/components/charts/PlotlyChart";
+import DataTable from "@/components/ui/DataTable";
+import { EquityCurveChart, RegimeReturnsChart } from "@/components/charts";
+import type { ColumnDef } from "@tanstack/react-table";
+import type { RegimeReturnEntry } from "@/lib/types";
+
+/* ─── TanStack Table column definitions ───────────────────── */
+
+const regimeBreakdownColumns: ColumnDef<RegimeReturnEntry, unknown>[] = [
+  {
+    accessorKey: "regime_name",
+    header: "Regime",
+    cell: ({ row }) => (
+      <span
+        className="font-medium"
+        style={{ color: REGIME_COLORS[row.original.regime] ?? "#6b7280" }}
+      >
+        {row.original.regime_name}
+      </span>
+    ),
+  },
+  { accessorKey: "days", header: "Days" },
+  {
+    accessorKey: "strategy_return",
+    header: "Strategy Return",
+    cell: ({ getValue }) => {
+      const v = getValue() as number;
+      return (
+        <span
+          className="font-mono"
+          style={{ color: v >= 0 ? "#22c55e" : "#ef4444" }}
+        >
+          {pctRaw(v)}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "benchmark_return",
+    header: "Benchmark Return",
+    cell: ({ getValue }) => {
+      const v = getValue() as number;
+      return (
+        <span
+          className="font-mono"
+          style={{ color: v >= 0 ? "#22c55e" : "#ef4444" }}
+        >
+          {pctRaw(v)}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "hit_rate",
+    header: "Hit Rate",
+    cell: ({ getValue }) => (
+      <span className="font-mono text-text-secondary">
+        {pct(getValue() as number)}
+      </span>
+    ),
+  },
+];
 
 export default function BacktestPage() {
   const [form, setForm] = useState<BacktestRequest>({
@@ -166,34 +220,12 @@ export default function BacktestPage() {
             />
           </div>
 
-          {/* Equity curve */}
+          {/* Equity curve — TradingView Lightweight Charts */}
           <div className="rounded-lg border border-border bg-surface p-4">
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
               Equity Curve
             </p>
-            <PlotlyChart
-              height={350}
-              data={[
-                {
-                  x: result.equity_curve.map((e) => e.date),
-                  y: result.equity_curve.map((e) => e.value),
-                  type: "scatter",
-                  mode: "lines",
-                  line: { color: "#3b82f6", width: 1.5 },
-                  name: "Strategy",
-                  fill: "tozeroy",
-                  fillcolor: "rgba(59,130,246,0.06)",
-                },
-              ]}
-              layout={{
-                yaxis: {
-                  title: { text: "Portfolio Value", font: { size: 10 } },
-                  tickprefix: "$",
-                },
-                xaxis: { type: "date" },
-                showlegend: false,
-              }}
-            />
+            <EquityCurveChart equityCurve={result.equity_curve} height={350} />
           </div>
 
           {/* Returns by regime */}
@@ -201,100 +233,18 @@ export default function BacktestPage() {
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
               Returns by Regime
             </p>
-            <PlotlyChart
-              height={280}
-              data={[
-                {
-                  type: "bar",
-                  x: result.regime_returns.map((r) => r.regime_name),
-                  y: result.regime_returns.map((r) => r.strategy_return * 100),
-                  name: "Strategy",
-                  marker: {
-                    color: result.regime_returns.map(
-                      (r) => REGIME_COLORS[r.regime] ?? "#6b7280",
-                    ),
-                  },
-                  hovertemplate:
-                    "%{x}<br>Return: %{y:.1f}%<extra>Strategy</extra>",
-                },
-                {
-                  type: "bar",
-                  x: result.regime_returns.map((r) => r.regime_name),
-                  y: result.regime_returns.map((r) => r.benchmark_return * 100),
-                  name: "Benchmark",
-                  marker: { color: "#555568" },
-                  hovertemplate:
-                    "%{x}<br>Return: %{y:.1f}%<extra>Benchmark</extra>",
-                },
-              ]}
-              layout={{
-                barmode: "group",
-                showlegend: true,
-                legend: { orientation: "h", y: -0.2, font: { size: 10 } },
-                yaxis: {
-                  title: { text: "Return (%)", font: { size: 10 } },
-                },
-              }}
-            />
+            <RegimeReturnsChart returns={result.regime_returns} height={280} />
           </div>
 
-          {/* Regime return table */}
+          {/* Regime return table — TanStack Table */}
           <div className="rounded-lg border border-border bg-surface p-4">
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
               Regime Breakdown
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs text-text-muted">
-                    <th className="pb-2 pr-4">Regime</th>
-                    <th className="pb-2 pr-4">Days</th>
-                    <th className="pb-2 pr-4">Strategy Return</th>
-                    <th className="pb-2 pr-4">Benchmark Return</th>
-                    <th className="pb-2">Hit Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.regime_returns.map((r) => (
-                    <tr key={r.regime} className="border-b border-border/50">
-                      <td className="py-2 pr-4">
-                        <span
-                          className="font-medium"
-                          style={{
-                            color: REGIME_COLORS[r.regime] ?? "#6b7280",
-                          }}
-                        >
-                          {r.regime_name}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-text-secondary">
-                        {r.days}
-                      </td>
-                      <td
-                        className="py-2 pr-4 font-mono"
-                        style={{
-                          color: r.strategy_return >= 0 ? "#22c55e" : "#ef4444",
-                        }}
-                      >
-                        {pctRaw(r.strategy_return)}
-                      </td>
-                      <td
-                        className="py-2 pr-4 font-mono"
-                        style={{
-                          color:
-                            r.benchmark_return >= 0 ? "#22c55e" : "#ef4444",
-                        }}
-                      >
-                        {pctRaw(r.benchmark_return)}
-                      </td>
-                      <td className="py-2 font-mono text-text-secondary">
-                        {pct(r.hit_rate)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={regimeBreakdownColumns}
+              data={result.regime_returns}
+            />
           </div>
         </>
       )}

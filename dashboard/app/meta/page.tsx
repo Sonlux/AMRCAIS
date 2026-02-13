@@ -8,18 +8,17 @@ import {
   fetchWeightHistory,
   fetchRecalibrations,
 } from "@/lib/api";
-import {
-  REGIME_COLORS,
-  REGIME_NAMES,
-  STALE_TIME,
-  REFETCH_INTERVAL,
-} from "@/lib/constants";
+import { STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
 import { pct, num, cn } from "@/lib/utils";
 
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
 import { CardSkeleton, ChartSkeleton } from "@/components/ui/Skeleton";
-import PlotlyChart from "@/components/charts/PlotlyChart";
+import {
+  ClassifierWeightsChart,
+  RegimeDistributionChart,
+  WeightEvolutionChart,
+} from "@/components/charts";
 
 export default function MetaPage() {
   const healthQ = useQuery({
@@ -176,32 +175,7 @@ export default function MetaPage() {
             )}
           </p>
           {weights ? (
-            <PlotlyChart
-              height={260}
-              data={[
-                {
-                  type: "bar",
-                  x: Object.keys(weights.weights).map((k) =>
-                    k.replace(/_/g, " "),
-                  ),
-                  y: Object.values(weights.weights),
-                  marker: {
-                    color: Object.values(weights.weights).map((v) =>
-                      v >= 0.3 ? "#3b82f6" : "#555568",
-                    ),
-                  },
-                  hovertemplate: "%{x}<br>Weight: %{y:.3f}<extra></extra>",
-                },
-              ]}
-              layout={{
-                yaxis: {
-                  title: { text: "Weight", font: { size: 10 } },
-                  range: [0, 1],
-                },
-                margin: { t: 10, l: 50, r: 20, b: 80 },
-                xaxis: { tickangle: -30, tickfont: { size: 10 } },
-              }}
-            />
+            <ClassifierWeightsChart weights={weights.weights} height={260} />
           ) : weightsQ.isError ? (
             <ErrorState onRetry={() => weightsQ.refetch()} />
           ) : (
@@ -215,30 +189,9 @@ export default function MetaPage() {
             Regime Distribution
           </p>
           {perf ? (
-            <PlotlyChart
+            <RegimeDistributionChart
+              distribution={perf.regime_distribution}
               height={260}
-              data={[
-                {
-                  type: "pie",
-                  labels: Object.keys(perf.regime_distribution).map(
-                    (k) => REGIME_NAMES[Number(k)] ?? k,
-                  ),
-                  values: Object.values(perf.regime_distribution),
-                  marker: {
-                    colors: Object.keys(perf.regime_distribution).map(
-                      (k) => REGIME_COLORS[Number(k)] ?? "#555568",
-                    ),
-                  },
-                  hole: 0.5,
-                  textinfo: "percent+label",
-                  hovertemplate:
-                    "%{label}<br>%{value} days (%{percent})<extra></extra>",
-                } as unknown as Plotly.Data,
-              ]}
-              layout={{
-                showlegend: false,
-                margin: { t: 10, r: 10, b: 10, l: 10 },
-              }}
             />
           ) : (
             <ChartSkeleton height="h-56" />
@@ -252,39 +205,7 @@ export default function MetaPage() {
           Weight Evolution Over Time
         </p>
         {weightHist && weightHist.history.length > 0 ? (
-          <PlotlyChart
-            height={300}
-            data={(() => {
-              const classifiers = Object.keys(
-                weightHist.history[0]?.weights ?? {},
-              );
-              const colors = [
-                "#3b82f6",
-                "#22c55e",
-                "#f59e0b",
-                "#ef4444",
-                "#a855f7",
-              ];
-              return classifiers.map((clf, idx) => ({
-                x: weightHist.history.map((h) => h.date),
-                y: weightHist.history.map((h) => h.weights[clf] ?? 0),
-                type: "scatter" as const,
-                mode: "lines" as const,
-                name: clf.replace(/_/g, " "),
-                line: { color: colors[idx % colors.length], width: 1.5 },
-                stackgroup: "one",
-              }));
-            })()}
-            layout={{
-              showlegend: true,
-              legend: { orientation: "h", y: -0.2, font: { size: 10 } },
-              yaxis: {
-                title: { text: "Weight", font: { size: 10 } },
-                range: [0, 1],
-              },
-              xaxis: { type: "date" },
-            }}
-          />
+          <WeightEvolutionChart history={weightHist.history} height={300} />
         ) : weightHistQ.isError ? (
           <ErrorState onRetry={() => weightHistQ.refetch()} />
         ) : (
