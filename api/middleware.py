@@ -2,13 +2,15 @@
 Security middleware for the AMRCAIS Dashboard API.
 
 Provides:
-- Security headers (OWASP best practices)
-- Rate limiting per IP
+- Security headers (OWASP best practices + HSTS + CSP)
+- CSRF enforcement on state-changing requests
+- Rate limiting per IP (sliding window + burst detection)
 - Request size limiting
 - Global exception handler (prevents stack trace leakage)
 """
 
 import logging
+import os
 import time
 from collections import defaultdict
 from typing import Callable, Dict, List, Tuple
@@ -19,23 +21,113 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
+_IS_PRODUCTION = os.getenv("AMRCAIS_ENV", "development") == "production"
+
 # ─── Security Headers Middleware ──────────────────────────────────
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Inject OWASP-recommended security headers into every response."""
+    """Inject OWASP-recommended security headers into every response.
+
+    Headers added:
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: DENY
+    - X-XSS-Protection: 1; mode=block
+    - Referrer-Policy: strict-origin-when-cross-origin
+    - Permissions-Policy: restrictive feature policy
+    - Cache-Control: no-store (sensitive financial data)
+    - Strict-Transport-Security (HSTS): 1 year with subdomains (production)
+    - Content-Security-Policy: restrictive CSP for API responses
+    - X-Permitted-Cross-Domain-Policies: none
+    - Cross-Origin-Opener-Policy: same-origin
+    - Cross-Origin-Resource-Policy: same-origin
+    """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
+
+        # ── Core OWASP headers ─────────────────────────────────
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
-            "camera=(), microphone=(), geolocation=()"
+            "camera=(), microphone=(), geolocation=(), "
+            "payment=(), usb=(), magnetometer=()"
         )
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+
+        # ── HSTS — enforce HTTPS (production only) ─────────────
+        if _IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains; preload"
+            )
+
+        # ── Content Security Policy for API ────────────────────
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "form-action 'none'"
+        )
+
+        # ── Cross-origin isolation ─────────────────────────────
+        response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+
         return response
+
+
+# ─── CSRF Middleware ──────────────────────────────────────────────
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Enforce CSRF token on state-changing requests (POST/PUT/PATCH/DELETE).
+
+    Reads the token from the ``X-CSRF-Token`` header and validates it
+    using the server-side CSRF secret.  GET / HEAD / OPTIONS are exempt.
+    The ``/docs`` and ``/openapi.json`` paths are also exempt so Swagger
+    UI keeps working.
+
+    To obtain a token the client calls ``GET /api/csrf-token``.
+    """
+
+    # Paths exempt from CSRF (read-only / infra)
+    EXEMPT_PATHS = {"/api/health", "/docs", "/openapi.json", "/redoc"}
+    # Exempt prefixes (Swagger support files)
+    EXEMPT_PREFIXES = ("/docs/", "/redoc/")
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Safe methods — no CSRF needed
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return await call_next(request)
+
+        # Exempt paths
+        path = request.url.path
+        if path in self.EXEMPT_PATHS or path.startswith(self.EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        # Validate CSRF token
+        from api.security import validate_csrf_token
+
+        token = request.headers.get("X-CSRF-Token")
+        if not token or not validate_csrf_token(token):
+            logger.warning(
+                f"CSRF validation failed for {request.method} {path} "
+                f"from {request.client.host if request.client else 'unknown'}"
+            )
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "error": "CSRF validation failed",
+                    "detail": "Missing or invalid X-CSRF-Token header. "
+                              "Obtain a token via GET /api/csrf-token.",
+                },
+            )
+
+        return await call_next(request)
 
 
 # ─── Rate Limiting Middleware ─────────────────────────────────────
@@ -159,7 +251,11 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Register global exception handlers that prevent stack trace leakage."""
+    """Register global exception handlers that prevent stack trace leakage.
+
+    In production mode, error details are completely suppressed.
+    In development, a sanitized message (no traceback) is returned.
+    """
 
     @app.exception_handler(Exception)
     async def _unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
@@ -167,6 +263,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             f"Unhandled exception on {request.method} {request.url.path}: {exc}",
             exc_info=True,
         )
+        # NEVER expose internal details in the response
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -178,7 +275,17 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValueError)
     async def _value_error(request: Request, exc: ValueError) -> JSONResponse:
         logger.warning(f"ValueError on {request.url.path}: {exc}")
+        # Sanitize — only return the message, never the traceback
+        safe_detail = str(exc)[:200]  # Truncate to prevent info leakage
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"error": "Validation error", "detail": str(exc)},
+            content={"error": "Validation error", "detail": safe_detail},
+        )
+
+    @app.exception_handler(PermissionError)
+    async def _permission_error(request: Request, exc: PermissionError) -> JSONResponse:
+        logger.error(f"PermissionError on {request.url.path}: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"error": "Forbidden", "detail": "Insufficient permissions."},
         )

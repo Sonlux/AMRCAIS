@@ -6,6 +6,17 @@ Run in development mode:
 
 Swagger docs available at:
     http://localhost:8000/docs
+
+Security:
+    - OWASP security headers on every response
+    - HSTS enforcement in production
+    - Content Security Policy (API-level)
+    - Rate limiting (sliding window + burst detection)
+    - Request body size limiting (1 MB)
+    - CSRF protection on state-changing requests
+    - API key authentication (optional in dev, required when configured)
+    - Global exception handlers (no stack traces leaked)
+    - Secure CORS policy
 """
 
 import logging
@@ -15,9 +26,11 @@ from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.dependencies import lifespan, get_startup_time
 from api.middleware import (
+    CSRFMiddleware,
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -25,6 +38,7 @@ from api.middleware import (
 )
 from api.routes import regime, modules, data, meta, backtest
 from api.schemas import HealthCheckResponse, StatusResponse
+from api.security import generate_csrf_token
 from api.dependencies import get_system
 
 logger = logging.getLogger(__name__)
@@ -39,14 +53,20 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+    # Disable docs in production for reduced attack surface
+    docs_url="/docs" if os.getenv("AMRCAIS_ENV") != "production" else None,
+    redoc_url="/redoc" if os.getenv("AMRCAIS_ENV") != "production" else None,
 )
 
 # ─── Security ─────────────────────────────────────────────────────
 # Global exception handlers — prevent stack trace leakage in responses
 register_exception_handlers(app)
 
-# Security headers (X-Content-Type-Options, X-Frame-Options, etc.)
+# Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, CSP, etc.)
 app.add_middleware(SecurityHeadersMiddleware)
+
+# CSRF enforcement on POST/PUT/PATCH/DELETE
+app.add_middleware(CSRFMiddleware)
 
 # Rate limiting — 120 requests / 60 s per IP, burst limit 30 / 5 s
 app.add_middleware(RateLimitMiddleware, max_requests=120, window_seconds=60)
@@ -66,7 +86,8 @@ app.add_middleware(
     allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-CSRF-Token"],
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
 )
 
 # ─── Routers ──────────────────────────────────────────────────────
@@ -79,6 +100,16 @@ app.include_router(backtest.router, prefix="/api/backtest", tags=["Backtest"])
 
 
 # ─── System Routes ────────────────────────────────────────────────
+
+
+@app.get("/api/csrf-token")
+async def get_csrf_token():
+    """Issue a CSRF token for use in state-changing requests.
+
+    The client must include this token in the ``X-CSRF-Token`` header
+    for all POST / PUT / PATCH / DELETE requests.
+    """
+    return JSONResponse(content={"csrf_token": generate_csrf_token()})
 
 
 @app.get("/api/health", response_model=HealthCheckResponse)

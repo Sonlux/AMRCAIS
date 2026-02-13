@@ -225,13 +225,15 @@ def api_client(mock_system):
     app.router.lifespan_context = _noop_lifespan
 
     # Bypass rate limiting for tests — prevents 429s from burst limits
-    from api.middleware import RateLimitMiddleware
+    from api.middleware import RateLimitMiddleware, CSRFMiddleware
     _orig_dispatch = RateLimitMiddleware.dispatch
+    _orig_csrf_dispatch = CSRFMiddleware.dispatch
 
     async def _passthrough(self, request, call_next):
         return await call_next(request)
 
     RateLimitMiddleware.dispatch = _passthrough
+    CSRFMiddleware.dispatch = _passthrough
 
     from starlette.testclient import TestClient
 
@@ -240,6 +242,7 @@ def api_client(mock_system):
 
     # Restore everything
     RateLimitMiddleware.dispatch = _orig_dispatch
+    CSRFMiddleware.dispatch = _orig_csrf_dispatch
     app.router.lifespan_context = saved_lifespan
     deps._system = orig_system
     deps._startup_time = orig_time

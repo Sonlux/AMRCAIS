@@ -92,7 +92,8 @@ class TestSecurityHeaders:
 
     def test_cache_control_no_store(self, api_client):
         headers = api_client.get("/api/health").headers
-        assert headers.get("cache-control") == "no-store"
+        cache = headers.get("cache-control", "")
+        assert "no-store" in cache
 
 
 # ─── Rate Limit Headers ──────────────────────────────────────────
