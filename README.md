@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/TypeScript-5.0+-blue.svg" alt="TypeScript 5.0+">
-  <img src="https://img.shields.io/badge/License-GPL--3.0-green.svg" alt="GPL-3.0 License">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0 License">
   <img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg" alt="Status: Active Development">
   <img src="https://img.shields.io/badge/Backend%20Tests-501%20Passing-brightgreen.svg" alt="Backend Tests: 501 Passing">
   <img src="https://img.shields.io/badge/Frontend%20Tests-87%20Passing-brightgreen.svg" alt="Frontend Tests: 87 Passing">
