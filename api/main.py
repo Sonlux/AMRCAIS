@@ -36,7 +36,7 @@ from api.middleware import (
     SecurityHeadersMiddleware,
     register_exception_handlers,
 )
-from api.routes import regime, modules, data, meta, backtest
+from api.routes import regime, modules, data, meta, backtest, phase2
 from api.schemas import HealthCheckResponse, StatusResponse
 from api.security import generate_csrf_token
 from api.dependencies import get_system
@@ -97,6 +97,7 @@ app.include_router(modules.router, prefix="/api/modules", tags=["Modules"])
 app.include_router(data.router, prefix="/api/data", tags=["Data"])
 app.include_router(meta.router, prefix="/api/meta", tags=["Meta-Learning"])
 app.include_router(backtest.router, prefix="/api/backtest", tags=["Backtest"])
+app.include_router(phase2.router, prefix="/api/phase2", tags=["Phase 2: Intelligence"])
 
 
 # ─── System Routes ────────────────────────────────────────────────

@@ -426,3 +426,162 @@ class VolSurfaceDataResponse(BaseModel):
 
 VALID_STRATEGIES = {"regime_following", "momentum", "mean_reversion"}
 VALID_ASSETS = {"SPX", "TLT", "GLD", "DXY", "WTI", "VIX"}
+
+
+# ─── Phase 2: Transition Forecast Schemas ─────────────────────────
+
+
+class TransitionForecastResponse(BaseModel):
+    """Forward-looking regime transition probabilities."""
+
+    current_regime: int
+    horizon_days: int = 30
+    hmm_probs: Dict[str, float] = Field(
+        default_factory=dict,
+        description="HMM-derived transition probabilities",
+    )
+    indicator_probs: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Indicator-adjusted probabilities",
+    )
+    blended_probs: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Final blended probabilities",
+    )
+    leading_indicators: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Current leading indicator values",
+    )
+    transition_risk: float = Field(
+        0.0, description="Probability of any regime change"
+    )
+    most_likely_next: int = Field(1, description="Most likely next regime ID")
+    most_likely_next_name: str = ""
+    confidence: float = 0.0
+
+
+# ─── Phase 2: Multi-Timeframe Schemas ─────────────────────────────
+
+
+class TimeframeRegimeResponse(BaseModel):
+    """Regime result for a single timeframe."""
+
+    timeframe: str
+    regime: int
+    regime_name: str
+    confidence: float
+    disagreement: float
+    transition_warning: bool = False
+    duration: int = 0
+
+
+class MultiTimeframeResponse(BaseModel):
+    """Aggregated multi-timeframe regime view."""
+
+    daily: TimeframeRegimeResponse
+    weekly: TimeframeRegimeResponse
+    monthly: TimeframeRegimeResponse
+    conflict_detected: bool = False
+    highest_conviction: str = "daily"
+    trade_signal: str = ""
+    agreement_score: float = 1.0
+
+
+# ─── Phase 2: Contagion Network Schemas ───────────────────────────
+
+
+class GrangerLinkResponse(BaseModel):
+    """Single Granger causality link."""
+
+    cause: str
+    effect: str
+    f_stat: float
+    p_value: float
+    lag: int
+    significant: bool
+
+
+class SpilloverResponse(BaseModel):
+    """Diebold-Yilmaz spillover decomposition."""
+
+    total_spillover_index: float
+    directional_to: Dict[str, float] = Field(default_factory=dict)
+    directional_from: Dict[str, float] = Field(default_factory=dict)
+    net_spillover: Dict[str, float] = Field(default_factory=dict)
+    pairwise: List[List[float]] = Field(default_factory=list)
+    assets: List[str] = Field(default_factory=list)
+
+
+class NetworkGraphResponse(BaseModel):
+    """Network graph for visualization."""
+
+    nodes: List[Dict[str, Any]] = Field(default_factory=list)
+    edges: List[Dict[str, Any]] = Field(default_factory=list)
+    total_nodes: int = 0
+    total_edges: int = 0
+
+
+class ContagionAnalysisResponse(BaseModel):
+    """Full contagion network analysis."""
+
+    signal: ModuleSignalResponse
+    granger_network: List[GrangerLinkResponse] = Field(default_factory=list)
+    spillover: SpilloverResponse
+    network_graph: NetworkGraphResponse
+    contagion_flags: Dict[str, bool] = Field(default_factory=dict)
+    n_significant_links: int = 0
+    network_density: float = 0.0
+
+
+# ─── Phase 2: Surprise Decay Schemas ──────────────────────────────
+
+
+class DecaySurpriseResponse(BaseModel):
+    """Single active decaying surprise."""
+
+    indicator: str
+    surprise: float
+    release_date: str
+    half_life_days: float
+    initial_weight: float
+    regime_at_release: int
+
+
+class SurpriseIndexResponse(BaseModel):
+    """Cumulative surprise index."""
+
+    index: float
+    direction: str
+    components: Dict[str, float] = Field(default_factory=dict)
+    active_surprises: int = 0
+    total_historical: int = 0
+
+
+class DecayCurvePoint(BaseModel):
+    """Single point on a decay curve."""
+
+    day: int
+    impact: float
+    is_stale: bool = False
+
+
+class DecayCurveResponse(BaseModel):
+    """Decay curves for all active surprises."""
+
+    curves: Dict[str, List[DecayCurvePoint]] = Field(default_factory=dict)
+
+
+# ─── Phase 2: Narrative Schemas ───────────────────────────────────
+
+
+class NarrativeResponse(BaseModel):
+    """Daily narrative briefing."""
+
+    headline: str
+    regime_section: str
+    signal_section: str
+    risk_section: str
+    positioning_section: str = ""
+    full_text: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    data_sources: Dict[str, str] = Field(default_factory=dict)

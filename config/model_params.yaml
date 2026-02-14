@@ -193,3 +193,59 @@ backtesting:
   benchmarks:
     - "static_regime" # Always assume one regime
     - "naive_forecast" # Yesterday's regime continues
+
+# ==============================================================================
+# Phase 2: Intelligence Expansion Parameters
+# ==============================================================================
+
+# --- Regime Transition Probability Model ---
+transition_model:
+  horizon_days: 30 # Forward-looking horizon (trading days)
+  hmm_weight: 0.40 # Weight for HMM base-rate probabilities
+  min_history: 60 # Minimum regime history for fitting
+  leading_indicators:
+    - "disagreement_trend"
+    - "vix_term_structure_slope"
+    - "credit_spread_momentum"
+    - "equity_bond_corr_change"
+    - "yield_curve_butterfly"
+  logistic_learning_rate: 0.01
+  logistic_iterations: 200
+
+# --- Cross-Asset Contagion Network ---
+contagion_network:
+  max_lag: 5 # Maximum lag for Granger causality
+  var_lag: 2 # VAR model lag order
+  forecast_horizon: 10 # FEVD forecast horizon
+  significance_level: 0.05 # Alpha for Granger tests
+  assets: ["SPX", "TLT", "GLD", "DXY", "WTI", "VIX"]
+  regime_connectedness_baselines:
+    1: { total_spillover: 25.0, std: 10.0 }
+    2: { total_spillover: 55.0, std: 12.0 }
+    3: { total_spillover: 40.0, std: 10.0 }
+    4: { total_spillover: 30.0, std: 10.0 }
+
+# --- Macro Surprise Decay Model ---
+surprise_decay:
+  stale_threshold: 0.05 # Absolute impact below which surprise is pruned
+  half_lives: # Per-indicator per-regime (trading days)
+    NFP: { 1: 3.0, 2: 5.0, 3: 7.0, 4: 4.0 }
+    CPI: { 1: 5.0, 2: 7.0, 3: 14.0, 4: 6.0 }
+    CORE_CPI: { 1: 5.0, 2: 7.0, 3: 14.0, 4: 6.0 }
+    PPI: { 1: 3.0, 2: 4.0, 3: 10.0, 4: 4.0 }
+    PMI: { 1: 4.0, 2: 5.0, 3: 8.0, 4: 5.0 }
+    GDP: { 1: 7.0, 2: 10.0, 3: 14.0, 4: 7.0 }
+    FOMC: { 1: 5.0, 2: 10.0, 3: 12.0, 4: 7.0 }
+    RETAIL_SALES: { 1: 2.0, 2: 3.0, 3: 5.0, 4: 3.0 }
+
+# --- Multi-Timeframe Regime Detection ---
+multi_timeframe:
+  daily_window: 60 # Trading days
+  weekly_window: 52 # Weeks
+  monthly_window: 36 # Months
+  min_daily_observations: 252
+
+# --- Natural Language Narrative ---
+narrative:
+  include_positioning: true
+  max_length_chars: 3000

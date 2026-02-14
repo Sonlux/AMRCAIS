@@ -28,6 +28,11 @@ from src.modules import (
     FactorExposureAnalyzer,
     CorrelationAnomalyDetector,
 )
+from src.modules.contagion_network import ContagionNetwork
+from src.modules.macro_surprise_decay import SurpriseDecayModel
+from src.regime_detection.transition_model import RegimeTransitionModel
+from src.regime_detection.multi_timeframe import MultiTimeframeDetector
+from src.narrative.narrative_generator import NarrativeGenerator
 from src.meta_learning import MetaLearner
 
 # Load environment variables
@@ -91,6 +96,11 @@ class AMRCAIS:
         self._current_confidence: float = 0.0
         self._current_disagreement: float = 0.0
         
+        # Phase 2 components
+        self.transition_model: Optional[RegimeTransitionModel] = None
+        self.multi_timeframe: Optional[MultiTimeframeDetector] = None
+        self.narrative_generator: Optional[NarrativeGenerator] = None
+        
         logger.info("AMRCAIS instance created")
     
     def initialize(self, lookback_days: int = 365) -> None:
@@ -132,7 +142,37 @@ class AMRCAIS:
             "options": OptionsSurfaceMonitor(config_path=self.config_path),
             "factors": FactorExposureAnalyzer(config_path=self.config_path),
             "correlations": CorrelationAnomalyDetector(config_path=self.config_path),
+            "contagion": ContagionNetwork(config_path=self.config_path),
+            "surprise_decay": SurpriseDecayModel(config_path=self.config_path),
         }
+        
+        # Initialize Phase 2 components
+        self.transition_model = RegimeTransitionModel()
+        self.narrative_generator = NarrativeGenerator()
+        
+        # Multi-timeframe detector (fit if enough data)
+        self.multi_timeframe = MultiTimeframeDetector(config_path=self.config_path)
+        if len(self.market_data) >= 252:
+            try:
+                self.multi_timeframe.fit(self.market_data)
+                logger.info("Multi-timeframe detector fitted")
+            except Exception as e:
+                logger.warning(f"Multi-timeframe fitting failed: {e}")
+        
+        # Fit transition model if ensemble is fitted and enough data
+        if self.ensemble and self.ensemble.is_fitted and len(self.market_data) > 100:
+            try:
+                from src.regime_detection.ensemble import EnsembleResult
+                regime_series = pd.Series(
+                    [r.regime for r in self.ensemble.predict_sequence(
+                        self.market_data, window=60, step=1
+                    )],
+                    index=self.market_data.index[60:],
+                )
+                self.transition_model.fit(self.market_data, regime_series)
+                logger.info("Transition probability model fitted")
+            except Exception as e:
+                logger.warning(f"Transition model fitting failed: {e}")
         
         # Initialize meta-learning layer (Phase 3 - The Killer Feature)
         storage_path = Path(self.db_path).parent / "regime_history.csv"
@@ -260,6 +300,37 @@ class AMRCAIS:
         
         # Generate summary
         results["summary"] = self._generate_summary(results)
+        
+        # Phase 2: Transition probabilities
+        if self.transition_model and self.transition_model.is_fitted:
+            try:
+                forecast = self.transition_model.predict(
+                    current_regime=regime_result.regime,
+                    market_data=data,
+                    disagreement=regime_result.disagreement,
+                )
+                results["transition_forecast"] = forecast.to_dict()
+            except Exception as e:
+                logger.warning(f"Transition forecast failed: {e}")
+                results["transition_forecast"] = {"error": str(e)}
+        
+        # Phase 2: Multi-timeframe
+        if self.multi_timeframe and self.multi_timeframe.is_fitted:
+            try:
+                mtf_result = self.multi_timeframe.predict(data)
+                results["multi_timeframe"] = mtf_result.to_dict()
+            except Exception as e:
+                logger.warning(f"Multi-timeframe prediction failed: {e}")
+                results["multi_timeframe"] = {"error": str(e)}
+        
+        # Phase 2: Narrative
+        if self.narrative_generator:
+            try:
+                briefing = self.narrative_generator.generate(results)
+                results["narrative"] = briefing.to_dict()
+            except Exception as e:
+                logger.warning(f"Narrative generation failed: {e}")
+                results["narrative"] = {"error": str(e)}
         
         return results
     

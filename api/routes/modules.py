@@ -31,7 +31,7 @@ from src.regime_detection.base import REGIME_NAMES
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-VALID_MODULES = {"macro", "yield_curve", "options", "factors", "correlations"}
+VALID_MODULES = {"macro", "yield_curve", "options", "factors", "correlations", "contagion", "surprise_decay"}
 
 
 def _parse_module_signal(name: str, raw: dict) -> ModuleSignalResponse:

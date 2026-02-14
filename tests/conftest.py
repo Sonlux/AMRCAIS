@@ -24,7 +24,8 @@ def _create_mock_system():
 
     # -- Modules --
     mock_modules = {}
-    for name in ["macro", "yield_curve", "options", "factors", "correlations"]:
+    for name in ["macro", "yield_curve", "options", "factors", "correlations",
+                  "contagion", "surprise_decay"]:
         mod = MagicMock()
         mod.get_regime_parameters.return_value = {
             "threshold": 0.5,
@@ -188,6 +189,37 @@ def _create_mock_system():
                     "regime_context": "Regime uncertainty",
                 },
                 "details": {"avg_correlation": 0.6},
+            },
+            "contagion": {
+                "signal": {
+                    "signal": "neutral",
+                    "strength": 0.3,
+                    "confidence": 0.5,
+                    "explanation": "Normal connectedness",
+                    "regime_context": "Risk-on network",
+                },
+                "details": {
+                    "granger_network": [],
+                    "spillover": {},
+                    "network_graph": {"nodes": [], "edges": []},
+                    "contagion_flags": {},
+                },
+            },
+            "surprise_decay": {
+                "signal": {
+                    "signal": "neutral",
+                    "strength": 0.2,
+                    "confidence": 0.5,
+                    "explanation": "No active surprises",
+                    "regime_context": "Growth regime",
+                },
+                "details": {
+                    "cumulative_index": {"index": 0.0, "direction": "neutral",
+                                         "components": {}, "active_surprises": 0,
+                                         "total_historical": 0},
+                    "active_surprises": [],
+                    "decay_curves": {},
+                },
             },
         },
     }

@@ -774,7 +774,7 @@ class TestAMRCAISInitialization:
         system.initialize()
         
         assert system._is_initialized is True
-        assert len(system.modules) == 5
+        assert len(system.modules) == 7
 
     @patch("src.modules.base.AnalyticalModule._load_config", return_value={})
     @patch("src.main.DataPipeline")

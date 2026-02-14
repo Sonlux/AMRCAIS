@@ -11,7 +11,8 @@ Covers:
 
 import pytest
 
-VALID_MODULES = ["macro", "yield_curve", "options", "factors", "correlations"]
+VALID_MODULES = ["macro", "yield_curve", "options", "factors", "correlations",
+                 "contagion", "surprise_decay"]
 VALID_SIGNALS = {"bullish", "bearish", "neutral", "cautious"}
 
 
@@ -25,9 +26,9 @@ class TestModuleSummary:
         resp = api_client.get("/api/modules/summary")
         assert resp.status_code == 200
 
-    def test_has_5_signals(self, api_client):
+    def test_has_7_signals(self, api_client):
         data = api_client.get("/api/modules/summary").json()
-        assert len(data["signals"]) == 5
+        assert len(data["signals"]) == 7
 
     def test_signal_entry_schema(self, api_client):
         data = api_client.get("/api/modules/summary").json()
