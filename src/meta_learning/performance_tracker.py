@@ -130,12 +130,30 @@ class RegimePerformanceTracker:
         """Initialize the performance tracker.
         
         Args:
-            storage_path: Path to persist classification history (optional)
+            storage_path: Path to persist classification history.
+                         If ends with .db, uses SQLite via DatabaseStorage.
+                         If ends with .csv, uses CSV (legacy fallback).
+                         Default: SQLite at data/amrcais.db
         """
         self.history: List[RegimeClassification] = []
-        self.storage_path = storage_path or Path("data/regime_history.csv")
+        self.storage_path = storage_path or Path("data/amrcais.db")
+        self._db_storage = None
         
-        # Load existing history if available
+        # Determine storage backend
+        self._use_sqlite = not str(self.storage_path).endswith(".csv")
+        
+        if self._use_sqlite:
+            try:
+                from src.data_pipeline.storage import DatabaseStorage
+                db_path = str(self.storage_path) if str(self.storage_path).endswith(".db") else "data/amrcais.db"
+                self._db_storage = DatabaseStorage(db_path=db_path)
+                logger.info(f"Using SQLite storage at {db_path}")
+            except Exception as e:
+                logger.warning(f"SQLite storage unavailable ({e}), falling back to CSV")
+                self._use_sqlite = False
+                self.storage_path = Path("data/regime_history.csv")
+        
+        # Load existing history
         self._load_history()
         
         logger.info(f"RegimePerformanceTracker initialized with {len(self.history)} historical records")
@@ -434,7 +452,27 @@ class RegimePerformanceTracker:
         return df
     
     def _load_history(self) -> None:
-        """Load classification history from disk."""
+        """Load classification history from storage (SQLite or CSV)."""
+        if self._use_sqlite and self._db_storage:
+            try:
+                records = self._db_storage.load_classifications()
+                for rec in records:
+                    classification = RegimeClassification(
+                        timestamp=rec["timestamp"],
+                        regime=int(rec["regime"]),
+                        confidence=float(rec["confidence"]),
+                        disagreement=float(rec["disagreement"]),
+                        individual_predictions=rec.get("individual_predictions", {}),
+                        market_state=rec.get("market_state", {}),
+                    )
+                    self.history.append(classification)
+                if self.history:
+                    logger.info(f"Loaded {len(self.history)} classifications from SQLite")
+            except Exception as e:
+                logger.warning(f"Failed to load from SQLite: {e}")
+            return
+        
+        # CSV fallback
         if not self.storage_path.exists():
             logger.debug("No existing history file found")
             return
@@ -452,23 +490,37 @@ class RegimePerformanceTracker:
                 )
                 self.history.append(classification)
             
-            logger.info(f"Loaded {len(self.history)} historical classifications")
+            logger.info(f"Loaded {len(self.history)} historical classifications from CSV")
         except Exception as e:
             logger.error(f"Failed to load history: {e}")
     
     def _save_history(self) -> None:
-        """Save classification history to disk."""
+        """Save recent classification history to storage (SQLite or CSV)."""
         if not self.history:
             return
         
+        if self._use_sqlite and self._db_storage:
+            try:
+                # Only save the most recent entry (called periodically)
+                latest = self.history[-1]
+                self._db_storage.save_classification(
+                    regime=latest.regime,
+                    confidence=latest.confidence,
+                    disagreement=latest.disagreement,
+                    individual_predictions=latest.individual_predictions,
+                    market_state=latest.market_state,
+                    timestamp=latest.timestamp,
+                )
+                logger.debug(f"Saved classification to SQLite")
+            except Exception as e:
+                logger.warning(f"Failed to save to SQLite: {e}")
+            return
+        
+        # CSV fallback
         try:
-            # Create parent directory if needed
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Convert to DataFrame and save
             df = self.get_classification_history()
             df.to_csv(self.storage_path)
-            
             logger.debug(f"Saved {len(self.history)} classifications to {self.storage_path}")
         except Exception as e:
             logger.error(f"Failed to save history: {e}")

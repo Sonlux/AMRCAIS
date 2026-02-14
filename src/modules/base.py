@@ -71,8 +71,8 @@ class ModuleSignal:
     
     @property
     def direction(self) -> int:
-        """Numeric signal direction: 1 for bullish, -1 for bearish, 0 for neutral."""
-        return {"bullish": 1, "bearish": -1, "neutral": 0}[self.signal]
+        """Numeric signal direction: 1 for bullish, -1 for bearish, 0 for neutral/cautious."""
+        return {"bullish": 1, "bearish": -1, "neutral": 0, "cautious": 0}[self.signal]
     
     @property
     def weighted_signal(self) -> float:

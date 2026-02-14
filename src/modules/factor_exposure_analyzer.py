@@ -139,6 +139,8 @@ class FactorExposureAnalyzer(AnalyticalModule):
             f: [] for f in self.STANDARD_FACTORS
         }
         self._historical_stats: Dict[str, Dict] = {}
+        self._rolling_window: int = 60  # trading days for rolling OLS
+        self._min_observations: int = 40
     
     def get_regime_parameters(self, regime: int) -> Dict:
         """Get factor expectations for a specific regime."""
@@ -147,44 +149,72 @@ class FactorExposureAnalyzer(AnalyticalModule):
         }
     
     def analyze(self, data: pd.DataFrame) -> Dict[str, Any]:
-        """Analyze factor returns data.
+        """Analyze factor returns data using rolling OLS regression.
+        
+        Uses rolling 60-day OLS where possible. Falls back to z-score
+        for factors without sufficient history for regression.
         
         Args:
-            data: DataFrame with factor return columns
+            data: DataFrame with factor return columns and asset returns
             
         Returns:
-            Comprehensive factor analysis
+            Comprehensive factor analysis with OLS betas and rotations
         """
         signals = []
         factor_results = {}
+        ols_betas = {}
+        
+        # Attempt rolling OLS if SPX returns available for dependent variable
+        has_spx = "SPX" in data.columns or "SPX_returns" in data.columns
+        spx_col = "SPX_returns" if "SPX_returns" in data.columns else "SPX" if "SPX" in data.columns else None
         
         for factor in self.STANDARD_FACTORS:
             if factor in data.columns:
                 returns = data[factor].dropna()
-                if len(returns) > 0:
-                    current_return = returns.iloc[-1]
-                    
-                    # Calculate z-score
-                    if len(returns) > 20:
-                        mean = returns.iloc[:-1].mean()
-                        std = returns.iloc[:-1].std()
-                        z_score = (current_return - mean) / std if std > 0 else 0
-                    else:
-                        z_score = 0
-                    
-                    result = self.analyze_factor(
-                        factor_name=factor,
-                        return_value=current_return,
-                        z_score=z_score,
+                if len(returns) == 0:
+                    continue
+                
+                current_return = float(returns.iloc[-1])
+                z_score = 0.0
+                beta = None
+                
+                # Rolling OLS: regress SPX returns on factor returns to get beta
+                if has_spx and spx_col and len(returns) >= self._min_observations:
+                    beta = self._compute_rolling_ols_beta(
+                        data, spx_col, factor
                     )
-                    factor_results[factor] = result
-                    signals.append(result["signal"])
+                    if beta is not None:
+                        ols_betas[factor] = beta
+                
+                # Compute z-score using expanding window stats
+                if len(returns) > 20:
+                    mean = float(returns.iloc[:-1].mean())
+                    std = float(returns.iloc[:-1].std())
+                    z_score = (current_return - mean) / std if std > 0 else 0
+                    
+                    # Update historical stats
+                    self._historical_stats[factor] = {
+                        "mean": mean,
+                        "std": std,
+                        "observations": len(returns) - 1,
+                    }
+                
+                result = self.analyze_factor(
+                    factor_name=factor,
+                    return_value=current_return,
+                    z_score=z_score,
+                    beta=beta,
+                )
+                factor_results[factor] = result
+                signals.append(result["signal"])
+        
+        # Detect factor rotation
+        rotation = self.detect_factor_rotation()
         
         if signals:
-            # Aggregate signals
             bullish = sum(1 for s in signals if s.signal == "bullish")
             bearish = sum(1 for s in signals if s.signal == "bearish")
-            avg_strength = np.mean([s.strength for s in signals])
+            avg_strength = float(np.mean([s.strength for s in signals]))
             
             overall = "bullish" if bullish > bearish else "bearish" if bearish > bullish else "neutral"
             
@@ -195,6 +225,9 @@ class FactorExposureAnalyzer(AnalyticalModule):
                     explanation=f"Factor analysis across {len(signals)} factors",
                 ),
                 "factor_results": factor_results,
+                "ols_betas": ols_betas,
+                "rotation": rotation,
+                "historical_stats": self._historical_stats,
                 "regime_parameters": self.get_current_parameters(),
             }
         
@@ -206,12 +239,59 @@ class FactorExposureAnalyzer(AnalyticalModule):
             ),
         }
     
+    def _compute_rolling_ols_beta(
+        self,
+        data: pd.DataFrame,
+        dependent: str,
+        factor: str,
+    ) -> Optional[float]:
+        """Compute rolling OLS beta of factor exposure.
+        
+        Regresses asset returns (dependent) on factor returns (independent)
+        using a rolling window to compute current factor beta/exposure.
+        
+        Args:
+            data: DataFrame with both columns
+            dependent: Dependent variable column name (e.g., SPX returns)
+            factor: Independent variable column name (factor returns)
+            
+        Returns:
+            Current rolling OLS beta, or None if insufficient data
+        """
+        if dependent not in data.columns or factor not in data.columns:
+            return None
+        
+        # Get aligned data
+        aligned = data[[dependent, factor]].dropna()
+        
+        if len(aligned) < self._min_observations:
+            return None
+        
+        # Use last rolling_window observations
+        window_data = aligned.iloc[-self._rolling_window:]
+        
+        y = window_data[dependent].values
+        x = window_data[factor].values
+        
+        # Add constant for OLS: y = alpha + beta * x
+        X = np.column_stack([np.ones(len(x)), x])
+        
+        try:
+            # OLS via normal equation: (X'X)^-1 X'y
+            XtX = X.T @ X
+            Xty = X.T @ y
+            betas = np.linalg.solve(XtX, Xty)
+            return float(betas[1])  # Return the slope (beta)
+        except np.linalg.LinAlgError:
+            return None
+    
     def analyze_factor(
         self,
         factor_name: str,
         return_value: float,
         z_score: Optional[float] = None,
         percentile: Optional[float] = None,
+        beta: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Analyze a single factor's performance.
         
@@ -220,6 +300,7 @@ class FactorExposureAnalyzer(AnalyticalModule):
             return_value: Current period return
             z_score: Z-score of return
             percentile: Historical percentile
+            beta: Rolling OLS beta (factor exposure coefficient)
             
         Returns:
             Factor analysis with regime-adaptive interpretation
@@ -295,6 +376,7 @@ class FactorExposureAnalyzer(AnalyticalModule):
             "expected": expected,
             "behaving_as_expected": behaving_as_expected,
             "z_score": z_score,
+            "beta": beta,
         }
     
     def detect_factor_rotation(

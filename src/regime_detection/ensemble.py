@@ -28,6 +28,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from src.regime_detection.base import BaseClassifier, RegimeResult, REGIME_NAMES
 from src.regime_detection.hmm_classifier import HMMRegimeClassifier
@@ -106,9 +107,9 @@ class RegimeEnsemble(BaseClassifier):
     """
     
     DEFAULT_WEIGHTS = {
-        "hmm": 0.30,
+        "hmm": 0.35,
         "ml": 0.25,
-        "correlation": 0.25,
+        "correlation": 0.20,
         "volatility": 0.20,
     }
     
@@ -121,20 +122,42 @@ class RegimeEnsemble(BaseClassifier):
         """Initialize the regime ensemble.
         
         Args:
-            config_path: Path to configuration file
+            config_path: Path to configuration directory (loads model_params.yaml)
             weights: Custom weights for classifiers (must sum to 1)
             disagreement_threshold: Threshold for transition warnings
         """
         super().__init__(n_regimes=4, name="Regime Ensemble")
         
-        # Set weights
+        # Load config from YAML if available
+        yaml_config = self._load_yaml_config(config_path)
+        
+        # Set weights: explicit arg > YAML > defaults
         if weights:
             total = sum(weights.values())
             self.weights = {k: v / total for k, v in weights.items()}
+        elif yaml_config:
+            yaml_weights = yaml_config.get("ensemble", {}).get("classifier_weights", {})
+            if yaml_weights:
+                # Map YAML keys to internal keys
+                key_map = {"random_forest": "ml", "correlation_cluster": "correlation", "volatility_regime": "volatility"}
+                mapped = {}
+                for k, v in yaml_weights.items():
+                    mapped_key = key_map.get(k, k)
+                    mapped[mapped_key] = v
+                total = sum(mapped.values())
+                self.weights = {k: v / total for k, v in mapped.items()}
+                logger.info(f"Loaded ensemble weights from YAML: {self.weights}")
+            else:
+                self.weights = self.DEFAULT_WEIGHTS.copy()
         else:
             self.weights = self.DEFAULT_WEIGHTS.copy()
         
-        self.disagreement_threshold = disagreement_threshold
+        # Load disagreement threshold from config
+        if yaml_config:
+            disagr_config = yaml_config.get("ensemble", {}).get("disagreement", {})
+            self.disagreement_threshold = disagr_config.get("alert_threshold", disagreement_threshold)
+        else:
+            self.disagreement_threshold = disagreement_threshold
         
         # Initialize classifiers
         self.classifiers: Dict[str, BaseClassifier] = {
@@ -465,8 +488,6 @@ class RegimeEnsemble(BaseClassifier):
         # Re-fit classifiers
         self.fit(data, labels=labels)
         
-        # TODO: Adjust weights based on recent accuracy
-        
         logger.info("Ensemble recalibration complete")
     
     def update_weights(self, new_weights: Dict[str, float]) -> None:
@@ -478,6 +499,40 @@ class RegimeEnsemble(BaseClassifier):
         total = sum(new_weights.values())
         self.weights = {k: v / total for k, v in new_weights.items()}
         logger.info(f"Updated ensemble weights: {self.weights}")
+    
+    @staticmethod
+    def _load_yaml_config(config_path: Optional[str]) -> Optional[Dict]:
+        """Load model parameters from YAML config.
+        
+        Args:
+            config_path: Path to config directory containing model_params.yaml
+            
+        Returns:
+            Config dict or None if not found
+        """
+        if not config_path:
+            return None
+        
+        from pathlib import Path
+        
+        # Search for model_params.yaml
+        search_paths = [
+            Path(config_path) / "model_params.yaml",
+            Path(config_path),
+            Path("config") / "model_params.yaml",
+        ]
+        
+        for path in search_paths:
+            if path.exists() and path.is_file():
+                try:
+                    with open(path, "r") as f:
+                        config = yaml.safe_load(f)
+                    logger.debug(f"Loaded model params from {path}")
+                    return config
+                except Exception as e:
+                    logger.warning(f"Failed to load config from {path}: {e}")
+        
+        return None
     
     def get_classifier_performance(self) -> Dict[str, Dict]:
         """Get performance metrics for each classifier.

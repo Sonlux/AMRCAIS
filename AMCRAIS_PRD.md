@@ -107,22 +107,22 @@ AMRCAIS employs a three-layer architecture with a target-state platform design:
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-| Layer | Description |
-|-------|-------------|
-| **Layer 1:** Regime Classification | 4 classifiers (HMM, Random Forest, Correlation Clustering, Volatility Detection) → ensemble voter → (regime, confidence, disagreement) |
+| Layer                              | Description                                                                                                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Layer 1:** Regime Classification | 4 classifiers (HMM, Random Forest, Correlation Clustering, Volatility Detection) → ensemble voter → (regime, confidence, disagreement)                                           |
 | **Layer 2:** Signal Interpretation | 5 analytical modules with regime-adaptive parameters: Macro Event Tracker, Yield Curve Analyzer, Options Surface Monitor, Factor Exposure Analyzer, Correlation Anomaly Detector |
-| **Layer 3:** Meta-Learning | Performance tracking, regime classification accuracy monitoring, disagreement detection, recalibration triggers |
+| **Layer 3:** Meta-Learning         | Performance tracking, regime classification accuracy monitoring, disagreement detection, recalibration triggers                                                                  |
 
 ### 3.2 Core Market Regimes
 
 The system classifies markets into four primary regimes based on historical analysis (2010–2026):
 
-| Regime | Characteristics | Historical Examples | Signal Interpretation |
-|--------|----------------|--------------------|-----------------------|
-| **1. Risk-On Growth** | Equities ↑, Bonds ↓, VIX <20, positive correlations | 2017-2019, 2023-2024 | Strong NFP = bullish; curve steepening = bullish |
-| **2. Risk-Off Crisis** | Everything sells, correlations spike to +1, VIX >30 | March 2020, Q4 2008 | Traditional signals unreliable; focus on volatility regime |
-| **3. Stagflation** | Commodities ↑, Equities flat, Rates rising | 2022, 1970s | Strong CPI = bearish; curve steepening = bearish |
-| **4. Disinflationary Boom** | Equities and Bonds both ↑, falling rates | Late 2023, 2010-2014 | Quality/growth factors outperform; rate cuts = bullish |
+| Regime                      | Characteristics                                     | Historical Examples  | Signal Interpretation                                      |
+| --------------------------- | --------------------------------------------------- | -------------------- | ---------------------------------------------------------- |
+| **1. Risk-On Growth**       | Equities ↑, Bonds ↓, VIX <20, positive correlations | 2017-2019, 2023-2024 | Strong NFP = bullish; curve steepening = bullish           |
+| **2. Risk-Off Crisis**      | Everything sells, correlations spike to +1, VIX >30 | March 2020, Q4 2008  | Traditional signals unreliable; focus on volatility regime |
+| **3. Stagflation**          | Commodities ↑, Equities flat, Rates rising          | 2022, 1970s          | Strong CPI = bearish; curve steepening = bearish           |
+| **4. Disinflationary Boom** | Equities and Bonds both ↑, falling rates            | Late 2023, 2010-2014 | Quality/growth factors outperform; rate cuts = bullish     |
 
 ---
 
@@ -131,29 +131,34 @@ The system classifies markets into four primary regimes based on historical anal
 ### 4.1 Analytical Modules (Layer 2)
 
 **Module 1: Macro Event Impact Tracker**
+
 - Monitors scheduled economic releases (NFP, CPI, FOMC) and measures market reactions across equities, FX, rates, and volatility
 - Regime Adaptation: In Risk-On Growth, strong NFP triggers equity rallies. In Stagflation, strong NFP is bearish (signals tighter Fed policy)
 - Data Sources: FRED API (macro data), Alpha Vantage/Polygon.io (intraday price data)
 
 **Module 2: Yield Curve Deformation Analyzer**
+
 - Simulates parallel shifts, steepeners, flatteners, and butterfly trades. Calculates duration, DV01, and convexity
 - Regime Adaptation: Steepening = bullish in Risk-On Growth, bearish in Stagflation
 - Target Enhancement: Nelson-Siegel-Svensson parametric model, PCA on yield curve changes (first 3 components ≈ 99.5% of variance)
 - Data Sources: Treasury.gov, FRED API
 
 **Module 3: Options Surface Monitor**
+
 - Cleans option chains, interpolates implied volatility, generates smooth volatility surfaces, detects arbitrage opportunities
 - Regime Adaptation: In Risk-Off Crisis, put skew steepens dramatically; system raises thresholds for "normal" skew
 - Target Enhancement: SABR model calibration, vol-of-vol (VVIX), real options data from CBOE/Polygon.io
 - Data Sources: yfinance, CBOE DataShop, Polygon.io options
 
 **Module 4: Factor Exposure Analyzer**
+
 - PCA and rolling regressions to estimate exposures to value, momentum, quality, and volatility factors
 - Regime Adaptation: Value outperforms in late-cycle/stagflation; growth outperforms in disinflationary boom
 - Target Enhancement: Fama-French/AQR factor data, rolling 60-day OLS, factor crowding detection
 - Data Sources: yfinance, Kenneth French Data Library, AQR factor datasets
 
 **Module 5: Cross-Asset Correlation Anomaly Detector**
+
 - Tracks rolling correlations across equities, bonds, gold, USD, oil, and VIX. Flags deviations from regime-specific baselines
 - Regime Adaptation: In Risk-On Growth, negative equity-bond correlation is normal; positive → signals regime shift
 - Target Enhancement: Granger causality testing, Diebold-Yilmaz spillover index, dynamic contagion network
@@ -183,6 +188,7 @@ Phase 2:  "We are in Risk-On Growth (85% confidence).
 ```
 
 Leading indicator candidates (ranked by historical predictive power):
+
 1. Disagreement Index trend (rising disagreement → transition)
 2. VIX term structure slope (backwardation → risk-off incoming)
 3. Credit spread momentum (widening → risk-off)
@@ -210,6 +216,7 @@ to 0.9x and adding convexity via VIX call spreads."
 ### 4.5 Regime-Conditional Risk & Portfolio Management (Phase 3)
 
 **Regime-Conditional VaR with Attribution:**
+
 ```
 Standard VaR:   Portfolio 1-day 99% VaR = -2.3%
 AMRCAIS VaR:    Portfolio 1-day 99% VaR:
@@ -220,6 +227,7 @@ AMRCAIS VaR:    Portfolio 1-day 99% VaR:
 ```
 
 **Regime-Aware Portfolio Optimizer:**
+
 ```
              Risk-On    Transitioning   Risk-Off
 SPX          60%   →    40%        →    20%
@@ -233,12 +241,14 @@ Rebalance trigger: Regime change OR transition probability > 40%
 ### 4.6 Real-Time Operations (Phase 4)
 
 **WebSocket Infrastructure:**
+
 - Polygon.io/Alpaca WebSocket for live market data
 - Redis/Kafka event bus for internal event routing
 - 15-minute regime update frequency during market hours
 - Server-Sent Events (SSE) for live dashboard updates
 
 **Alert Engine:**
+
 ```
 Alert Types:
   🔴 REGIME CHANGE: Risk-On → Risk-Off detected (confidence: 78%)
@@ -256,21 +266,21 @@ Alert Types:
 
 ### 5.1 Technology Stack
 
-| Component | Technology |
-|-----------|-----------|
-| **Language** | Python 3.10+ (backend), TypeScript (frontend) |
-| **Backend Framework** | FastAPI 0.109.0 with Uvicorn |
-| **Frontend Framework** | Next.js 16.1.6 (App Router, Turbopack), React 19 |
-| **Data Analysis** | pandas, numpy, scipy |
-| **Machine Learning** | scikit-learn (Random Forest, KMeans, Spectral), hmmlearn (GaussianHMM), statsmodels |
-| **Visualization** | Plotly.js 3.3.1 (15 chart types incl. 3D), TradingView Lightweight Charts 5.1.0 |
-| **Data Grid** | TanStack React Table |
-| **State Management** | TanStack React Query 5.90.21, URL state persistence |
-| **Data Sources** | FRED API (free), yfinance, Alpha Vantage, Polygon.io (freemium), CBOE DataShop, Kenneth French Data Library |
-| **Database** | SQLite/DuckDB (local), PostgreSQL (production target) |
-| **Containerization** | Docker Compose (API + Dashboard containers) |
-| **Security** | OWASP hardening, CSRF protection, rate limiting, API key auth |
-| **Testing** | pytest (backend), Vitest 4.0.18 (frontend) |
+| Component              | Technology                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Language**           | Python 3.10+ (backend), TypeScript (frontend)                                                               |
+| **Backend Framework**  | FastAPI 0.109.0 with Uvicorn                                                                                |
+| **Frontend Framework** | Next.js 16.1.6 (App Router, Turbopack), React 19                                                            |
+| **Data Analysis**      | pandas, numpy, scipy                                                                                        |
+| **Machine Learning**   | scikit-learn (Random Forest, KMeans, Spectral), hmmlearn (GaussianHMM), statsmodels                         |
+| **Visualization**      | Plotly.js 3.3.1 (15 chart types incl. 3D), TradingView Lightweight Charts 5.1.0                             |
+| **Data Grid**          | TanStack React Table                                                                                        |
+| **State Management**   | TanStack React Query 5.90.21, URL state persistence                                                         |
+| **Data Sources**       | FRED API (free), yfinance, Alpha Vantage, Polygon.io (freemium), CBOE DataShop, Kenneth French Data Library |
+| **Database**           | SQLite/DuckDB (local), PostgreSQL (production target)                                                       |
+| **Containerization**   | Docker Compose (API + Dashboard containers)                                                                 |
+| **Security**           | OWASP hardening, CSRF protection, rate limiting, API key auth                                               |
+| **Testing**            | pytest (backend), Vitest 4.0.18 (frontend)                                                                  |
 
 ### 5.2 Data Requirements
 
@@ -282,13 +292,13 @@ Alert Types:
 
 ### 5.3 Performance Requirements
 
-| Requirement | Target |
-|-------------|--------|
-| Regime Classification Latency | < 5 seconds for daily update |
-| Backtesting Speed | 15 years of data in < 2 minutes |
-| API Response Time | < 500ms for all endpoints |
-| Dashboard Rendering | Interactive charts < 3 seconds |
-| Real-Time Updates (Phase 4) | Every 15 minutes during market hours |
+| Requirement                   | Target                               |
+| ----------------------------- | ------------------------------------ |
+| Regime Classification Latency | < 5 seconds for daily update         |
+| Backtesting Speed             | 15 years of data in < 2 minutes      |
+| API Response Time             | < 500ms for all endpoints            |
+| Dashboard Rendering           | Interactive charts < 3 seconds       |
+| Real-Time Updates (Phase 4)   | Every 15 minutes during market hours |
 
 ---
 
@@ -298,74 +308,74 @@ Alert Types:
 
 **21,800 LOC | 588 tests | 22 API endpoints | 18 chart components**
 
-| Deliverable | Status |
-|-------------|--------|
-| Data pipeline (FRED, yfinance, Alpha Vantage with fallback chain) | ✅ |
-| 4 regime classifiers + ensemble voter | ✅ |
-| 5 analytical modules with regime-conditional parameters | ✅ |
-| Meta-learning layer (performance tracking, accuracy, disagreement) | ✅ |
-| FastAPI backend (22 endpoints, OWASP security, CSRF, rate limiting) | ✅ |
-| Next.js dashboard (7 pages, 18 charts, 3D surfaces, URL state) | ✅ |
-| Docker Compose deployment | ✅ |
-| Backend tests (501) + Frontend tests (87) | ✅ |
+| Deliverable                                                         | Status |
+| ------------------------------------------------------------------- | ------ |
+| Data pipeline (FRED, yfinance, Alpha Vantage with fallback chain)   | ✅     |
+| 4 regime classifiers + ensemble voter                               | ✅     |
+| 5 analytical modules with regime-conditional parameters             | ✅     |
+| Meta-learning layer (performance tracking, accuracy, disagreement)  | ✅     |
+| FastAPI backend (22 endpoints, OWASP security, CSRF, rate limiting) | ✅     |
+| Next.js dashboard (7 pages, 18 charts, 3D surfaces, URL state)      | ✅     |
+| Docker Compose deployment                                           | ✅     |
+| Backend tests (501) + Frontend tests (87)                           | ✅     |
 
 ### Phase 1: Foundation Hardening — Weeks 1–6
 
 **Goal:** Zero stubs, zero placeholders. Everything works with real data.
 
-| Item | Timeline |
-|------|----------|
+| Item                                                                            | Timeline  |
+| ------------------------------------------------------------------------------- | --------- |
 | Recalibration engine (walk-forward retrain, shadow mode, rollback, persistence) | Weeks 1–2 |
-| Options data integration (CBOE/Polygon.io, SABR calibration, VVIX) | Weeks 2–3 |
-| Factor model integration (Fama-French/AQR, rolling OLS, crowding detection) | Weeks 3–4 |
-| Signal history persistence (SQLite/DuckDB, queryable across all modules) | Week 4 |
-| Nelson-Siegel yield curve (NSS model, level/slope/curvature factors) | Weeks 4–5 |
-| Volatility classifier upgrade (GARCH, VIX futures term structure, ML-based) | Weeks 5–6 |
+| Options data integration (CBOE/Polygon.io, SABR calibration, VVIX)              | Weeks 2–3 |
+| Factor model integration (Fama-French/AQR, rolling OLS, crowding detection)     | Weeks 3–4 |
+| Signal history persistence (SQLite/DuckDB, queryable across all modules)        | Week 4    |
+| Nelson-Siegel yield curve (NSS model, level/slope/curvature factors)            | Weeks 4–5 |
+| Volatility classifier upgrade (GARCH, VIX futures term structure, ML-based)     | Weeks 5–6 |
 
 ### Phase 2: Intelligence Expansion — Weeks 7–14
 
 **Goal:** Capabilities Bloomberg fundamentally cannot do.
 
-| Item | Description |
-|------|-------------|
-| Regime transition probability model | HMM transition probs + logistic regression on leading indicators |
-| Cross-asset contagion network | Granger causality, Diebold-Yilmaz spillover, regime-conditional topology |
-| Natural language regime narrative | Template → LLM-enhanced daily briefings backed by module data |
-| Multi-timeframe regime detection | Daily/weekly/monthly views, conflicting timeframes = high-conviction signals |
-| Macro surprise decay model | Per-indicator half-lives, cumulative surprise index, stale detection |
+| Item                                | Description                                                                  |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| Regime transition probability model | HMM transition probs + logistic regression on leading indicators             |
+| Cross-asset contagion network       | Granger causality, Diebold-Yilmaz spillover, regime-conditional topology     |
+| Natural language regime narrative   | Template → LLM-enhanced daily briefings backed by module data                |
+| Multi-timeframe regime detection    | Daily/weekly/monthly views, conflicting timeframes = high-conviction signals |
+| Macro surprise decay model          | Per-indicator half-lives, cumulative surprise index, stale detection         |
 
 ### Phase 3: Prediction Engine — Weeks 15–24
 
 **Goal:** From "what is the regime" to "what will the regime do to asset prices."
 
-| Item | Description |
-|------|-------------|
-| Regime-conditional return forecasting | Hamilton regime-switching regression, separate α and β per regime |
-| Tail risk attribution | Regime-conditional VaR/CVaR with transition scenario decomposition |
-| Regime-aware portfolio optimizer | Mean-variance + Black-Litterman with regime views, txn cost-aware |
-| Anomaly-based alpha signals | Correlation anomalies → tradeable signals, composite alpha score |
+| Item                                  | Description                                                        |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| Regime-conditional return forecasting | Hamilton regime-switching regression, separate α and β per regime  |
+| Tail risk attribution                 | Regime-conditional VaR/CVaR with transition scenario decomposition |
+| Regime-aware portfolio optimizer      | Mean-variance + Black-Litterman with regime views, txn cost-aware  |
+| Anomaly-based alpha signals           | Correlation anomalies → tradeable signals, composite alpha score   |
 
 ### Phase 4: Real-Time + Execution — Weeks 25–36
 
 **Goal:** Transform from daily research tool to real-time decision engine.
 
-| Item | Description |
-|------|-------------|
+| Item                          | Description                                                     |
+| ----------------------------- | --------------------------------------------------------------- |
 | WebSocket data infrastructure | Polygon.io/Alpaca, Redis/Kafka event bus, 15-min regime updates |
-| Alert engine | Multi-channel (email, Slack, Telegram), configurable thresholds |
-| Paper trading integration | Alpaca paper trading, regime P&L attribution |
-| API-first + Python SDK | `pip install amrcais-client`, expanded OpenAPI, gRPC |
+| Alert engine                  | Multi-channel (email, Slack, Telegram), configurable thresholds |
+| Paper trading integration     | Alpaca paper trading, regime P&L attribution                    |
+| API-first + Python SDK        | `pip install amrcais-client`, expanded OpenAPI, gRPC            |
 
 ### Phase 5: Network Effects — Weeks 37–52
 
 **Goal:** Defensible advantages that compound over time.
 
-| Item | Description |
-|------|-------------|
-| Institutional memory | Indexed regime transitions with outcomes, pattern matching |
-| Multi-user + collaboration | Role-based access, custom regimes, shared annotations |
-| Alternative data integration | 7+ new signals (MOVE, SKEW, CDX, copper/gold, HY, TIPS, FFR) |
-| Research publication pipeline | Auto-generated case studies and backtest reports |
+| Item                          | Description                                                  |
+| ----------------------------- | ------------------------------------------------------------ |
+| Institutional memory          | Indexed regime transitions with outcomes, pattern matching   |
+| Multi-user + collaboration    | Role-based access, custom regimes, shared annotations        |
+| Alternative data integration  | 7+ new signals (MOVE, SKEW, CDX, copper/gold, HY, TIPS, FFR) |
+| Research publication pipeline | Auto-generated case studies and backtest reports             |
 
 ---
 
@@ -373,29 +383,29 @@ Alert Types:
 
 ### 7.1 Quantitative Metrics
 
-| Metric | Target |
-|--------|--------|
-| Regime Classification Accuracy | ≥80% vs manually labeled regimes (2010–2026) |
-| Regime Transition Detection | Disagreement >0.6 precedes 70%+ of transitions, 1–4 week lead |
-| Signal Improvement | ≥15% higher Sharpe ratio vs static models in backtest |
-| False Positive Rate | ≤20% uncertainty alerts during stable periods |
-| Return Forecast R² (Phase 3) | Positive out-of-sample R² for regime-conditional models |
-| Portfolio Alpha (Phase 3) | Regime-aware optimizer outperforms static 60/40 |
-| Transition Prediction (Phase 2) | ≥70% accuracy with 2–5 day lead time |
-| Test Coverage | ≥80% backend and frontend |
+| Metric                          | Target                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| Regime Classification Accuracy  | ≥80% vs manually labeled regimes (2010–2026)                  |
+| Regime Transition Detection     | Disagreement >0.6 precedes 70%+ of transitions, 1–4 week lead |
+| Signal Improvement              | ≥15% higher Sharpe ratio vs static models in backtest         |
+| False Positive Rate             | ≤20% uncertainty alerts during stable periods                 |
+| Return Forecast R² (Phase 3)    | Positive out-of-sample R² for regime-conditional models       |
+| Portfolio Alpha (Phase 3)       | Regime-aware optimizer outperforms static 60/40               |
+| Transition Prediction (Phase 2) | ≥70% accuracy with 2–5 day lead time                          |
+| Test Coverage                   | ≥80% backend and frontend                                     |
 
 ### 7.2 Bloomberg Comparison Matrix (Phase 3+ Target)
 
-| Capability | Bloomberg | AMRCAIS |
-|-----------|-----------|---------|
-| "What regime are we in?" | Doesn't exist | 4-classifier ensemble with confidence + disagreement |
-| "What will happen next?" | User guesses | Transition probability model with leading indicators |
-| "What does this data mean?" | Raw numbers | Regime-conditional interpretation |
-| "How should I position?" | Generic analytics | Regime-aware optimal allocation with transition scenarios |
-| "What's my real risk?" | Static VaR | Regime-conditional VaR with transition decomposition |
-| "Is the model still right?" | N/A | 5 recalibration triggers with auto-retrain |
-| "Has this happened before?" | Historical charts | Pattern-matched institutional memory |
-| System learns from history | No (stateless) | Yes (every transition improves the model) |
+| Capability                  | Bloomberg         | AMRCAIS                                                   |
+| --------------------------- | ----------------- | --------------------------------------------------------- |
+| "What regime are we in?"    | Doesn't exist     | 4-classifier ensemble with confidence + disagreement      |
+| "What will happen next?"    | User guesses      | Transition probability model with leading indicators      |
+| "What does this data mean?" | Raw numbers       | Regime-conditional interpretation                         |
+| "How should I position?"    | Generic analytics | Regime-aware optimal allocation with transition scenarios |
+| "What's my real risk?"      | Static VaR        | Regime-conditional VaR with transition decomposition      |
+| "Is the model still right?" | N/A               | 5 recalibration triggers with auto-retrain                |
+| "Has this happened before?" | Historical charts | Pattern-matched institutional memory                      |
+| System learns from history  | No (stateless)    | Yes (every transition improves the model)                 |
 
 ### 7.3 Qualitative Validation
 
@@ -407,14 +417,14 @@ Alert Types:
 
 ## 8. Risk Analysis & Mitigation
 
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| **Overfitting to Historical Regimes** | Novel regimes (AI-driven markets, digital currency dominance) may not fit | Walk-forward validation; out-of-sample monitoring; flag distribution drift |
-| **Data Quality Issues** | Free APIs have gaps, errors, corporate action adjustments | Robust validation; cross-reference multiple sources; fallback chain (FRED → yfinance → Alpha Vantage → cache) |
-| **Computational Complexity** | 4+ classifiers × 5 modules may not scale to intraday | Vectorized operations, caching, incremental updates; daily sufficient for Phase 0–2 |
-| **Scope Creep** | Feature additions delay core deliverable | Phase-gated roadmap with exit criteria; no new phase until previous exits cleanly |
-| **Regime Novelty** | Unprecedented regime type not in training data | Monitor classifier confidence; flag universal uncertainty; build regime discovery mechanism |
-| **API Rate Limits** | Throttled during market hours on free tier | Rate-limited fetcher with backoff; local caching ≤7 days; batch requests |
+| Risk                                  | Impact                                                                    | Mitigation                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Overfitting to Historical Regimes** | Novel regimes (AI-driven markets, digital currency dominance) may not fit | Walk-forward validation; out-of-sample monitoring; flag distribution drift                                    |
+| **Data Quality Issues**               | Free APIs have gaps, errors, corporate action adjustments                 | Robust validation; cross-reference multiple sources; fallback chain (FRED → yfinance → Alpha Vantage → cache) |
+| **Computational Complexity**          | 4+ classifiers × 5 modules may not scale to intraday                      | Vectorized operations, caching, incremental updates; daily sufficient for Phase 0–2                           |
+| **Scope Creep**                       | Feature additions delay core deliverable                                  | Phase-gated roadmap with exit criteria; no new phase until previous exits cleanly                             |
+| **Regime Novelty**                    | Unprecedented regime type not in training data                            | Monitor classifier confidence; flag universal uncertainty; build regime discovery mechanism                   |
+| **API Rate Limits**                   | Throttled during market hours on free tier                                | Rate-limited fetcher with backoff; local caching ≤7 days; batch requests                                      |
 
 ---
 
@@ -422,47 +432,47 @@ Alert Types:
 
 ### 9.1 Codebase Metrics (February 2026)
 
-| Metric | Value |
-|--------|-------|
-| Total Lines of Code | ~21,800 |
-| Python Backend LOC | 11,589 |
-| TypeScript Frontend LOC | 4,142 |
-| Test Code LOC | 6,050 |
-| Backend Tests | 501 (all passing) |
-| Frontend Tests | 87 (all passing) |
-| API Endpoints | 22 |
-| Dashboard Charts | 18 (incl. 3D yield curve + vol surface) |
-| Dashboard Pages | 7 |
-| Git Commits | 13 |
+| Metric                  | Value                                   |
+| ----------------------- | --------------------------------------- |
+| Total Lines of Code     | ~21,800                                 |
+| Python Backend LOC      | 11,589                                  |
+| TypeScript Frontend LOC | 4,142                                   |
+| Test Code LOC           | 6,050                                   |
+| Backend Tests           | 501 (all passing)                       |
+| Frontend Tests          | 87 (all passing)                        |
+| API Endpoints           | 22                                      |
+| Dashboard Charts        | 18 (incl. 3D yield curve + vol surface) |
+| Dashboard Pages         | 7                                       |
+| Git Commits             | 13                                      |
 
 ### 9.2 Module Readiness
 
-| Module | Status | Notes |
-|--------|--------|-------|
-| HMM Classifier | 🟢 Production | GaussianHMM 4-state, walk-forward fit |
-| ML Classifier | 🟢 Production | 200-tree RF, 5-fold CV |
-| Correlation Classifier | 🟢 Production | KMeans/Spectral clustering |
-| Volatility Classifier | 🟡 Functional | Rule-based; needs GARCH + VIX term structure (Phase 1) |
-| Ensemble Voter | 🟢 Production | Weighted voting with confidence calibration |
-| Macro Event Tracker | 🟢 Production | 6 indicators with regime-conditional weights |
-| Yield Curve Analyzer | 🟢 Production | Cubic spline; Nelson-Siegel upgrade planned (Phase 1) |
-| Options Surface Monitor | 🟡 Functional | VIX proxy; real options + SABR planned (Phase 1) |
-| Factor Exposure Analyzer | 🟡 Functional | PCA-based; Fama-French planned (Phase 1) |
-| Correlation Anomaly Detector | 🟢 Production | Rolling correlations with regime baselines |
-| Performance Tracker | 🟢 Production | Accuracy tracking + recalibration triggers |
-| Meta-Learner | 🟡 Functional | `execute_recalibration()` stub (Phase 1 priority) |
-| Data Pipeline | 🟢 Production | FRED + yfinance + Alpha Vantage with fallback |
-| FastAPI Backend | 🟢 Production | 22 endpoints, full security stack |
-| Next.js Dashboard | 🟢 Production | 7 pages, 18 charts, URL state, 3D surfaces |
+| Module                       | Status        | Notes                                                  |
+| ---------------------------- | ------------- | ------------------------------------------------------ |
+| HMM Classifier               | 🟢 Production | GaussianHMM 4-state, walk-forward fit                  |
+| ML Classifier                | 🟢 Production | 200-tree RF, 5-fold CV                                 |
+| Correlation Classifier       | 🟢 Production | KMeans/Spectral clustering                             |
+| Volatility Classifier        | 🟡 Functional | Rule-based; needs GARCH + VIX term structure (Phase 1) |
+| Ensemble Voter               | 🟢 Production | Weighted voting with confidence calibration            |
+| Macro Event Tracker          | 🟢 Production | 6 indicators with regime-conditional weights           |
+| Yield Curve Analyzer         | 🟢 Production | Cubic spline; Nelson-Siegel upgrade planned (Phase 1)  |
+| Options Surface Monitor      | 🟡 Functional | VIX proxy; real options + SABR planned (Phase 1)       |
+| Factor Exposure Analyzer     | 🟡 Functional | PCA-based; Fama-French planned (Phase 1)               |
+| Correlation Anomaly Detector | 🟢 Production | Rolling correlations with regime baselines             |
+| Performance Tracker          | 🟢 Production | Accuracy tracking + recalibration triggers             |
+| Meta-Learner                 | 🟡 Functional | `execute_recalibration()` stub (Phase 1 priority)      |
+| Data Pipeline                | 🟢 Production | FRED + yfinance + Alpha Vantage with fallback          |
+| FastAPI Backend              | 🟢 Production | 22 endpoints, full security stack                      |
+| Next.js Dashboard            | 🟢 Production | 7 pages, 18 charts, URL state, 3D surfaces             |
 
 ---
 
 ## 10. References
 
-- Hamilton, J. D. (1989). "A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle." *Econometrica*, 57(2), 357-384.
-- Ang, A., & Bekaert, G. (2002). "Regime Switches in Interest Rates." *Journal of Business & Economic Statistics*, 20(2), 163-182.
-- Guidolin, M., & Timmermann, A. (2007). "Asset Allocation under Multivariate Regime Switching." *Journal of Economic Dynamics and Control*, 31(11), 3503-3544.
-- Diebold, F. X., & Yilmaz, K. (2012). "Better to Give than to Receive: Predictive Directional Measurement of Volatility Spillovers." *International Journal of Forecasting*, 28(1), 57-66.
+- Hamilton, J. D. (1989). "A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle." _Econometrica_, 57(2), 357-384.
+- Ang, A., & Bekaert, G. (2002). "Regime Switches in Interest Rates." _Journal of Business & Economic Statistics_, 20(2), 163-182.
+- Guidolin, M., & Timmermann, A. (2007). "Asset Allocation under Multivariate Regime Switching." _Journal of Economic Dynamics and Control_, 31(11), 3503-3544.
+- Diebold, F. X., & Yilmaz, K. (2012). "Better to Give than to Receive: Predictive Directional Measurement of Volatility Spillovers." _International Journal of Forecasting_, 28(1), 57-66.
 - Recent research (2024–2026) on AI in financial markets, ML model risk, and correlation regime changes.
 
 ---
@@ -477,7 +487,7 @@ Past performance is not indicative of future results. Historical backtests and s
 
 ## Appendix B: Document History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | February 4, 2026 | Initial release — 4-phase 12-week MVP roadmap |
-| 2.0 | February 13, 2026 | Major update: 5-phase strategic roadmap (52 weeks), updated tech stack (FastAPI + Next.js), current implementation status, Bloomberg comparison matrix, target platform architecture, prediction engine and portfolio optimization specs, real-time & execution plan, network effects strategy |
+| Version | Date              | Changes                                                                                                                                                                                                                                                                                        |
+| ------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0     | February 4, 2026  | Initial release — 4-phase 12-week MVP roadmap                                                                                                                                                                                                                                                  |
+| 2.0     | February 13, 2026 | Major update: 5-phase strategic roadmap (52 weeks), updated tech stack (FastAPI + Next.js), current implementation status, Bloomberg comparison matrix, target platform architecture, prediction engine and portfolio optimization specs, real-time & execution plan, network effects strategy |

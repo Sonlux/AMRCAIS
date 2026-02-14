@@ -224,6 +224,21 @@ class AMRCAIS:
             uncertainty_signal = self.meta_learner.generate_uncertainty_signal()
             adaptive_weights = self.meta_learner.get_adaptive_weights()
             
+            # Push adaptive weights to ensemble
+            if adaptive_weights and self.ensemble:
+                self.ensemble.update_weights(adaptive_weights)
+            
+            # Execute recalibration if needed (pass ensemble + data for retraining)
+            if recalibration_decision.should_recalibrate:
+                self.meta_learner.execute_recalibration(
+                    decision=recalibration_decision,
+                    ensemble=self.ensemble,
+                    training_data=data,
+                )
+            
+            # Validate shadow mode if active
+            shadow_result = self.meta_learner.validate_shadow_mode()
+            
             results["meta"] = {
                 "needs_recalibration": recalibration_decision.should_recalibrate,
                 "recalibration_urgency": recalibration_decision.urgency_level,
@@ -231,6 +246,7 @@ class AMRCAIS:
                 "recalibration_reasons": [str(r) for r in recalibration_decision.reasons],
                 "uncertainty_signal": uncertainty_signal,
                 "adaptive_weights": adaptive_weights,
+                "shadow_validation": shadow_result,
                 "performance_metrics": self.meta_learner.get_performance_metrics(30).to_dict(),
             }
         else:
@@ -258,26 +274,32 @@ class AMRCAIS:
             "stability": "Unstable" if regime["transition_warning"] else "Stable",
         }
         
-        # Count bullish/bearish signals
+        # Count bullish/bearish/cautious signals
         bullish = 0
         bearish = 0
+        cautious = 0
         
         for name, module in results["modules"].items():
             signal = module.get("signal", {})
             if isinstance(signal, dict):
-                if signal.get("signal") == "bullish":
+                sig_val = signal.get("signal", "neutral")
+                if sig_val == "bullish":
                     bullish += 1
-                elif signal.get("signal") == "bearish":
+                elif sig_val == "bearish":
                     bearish += 1
+                elif sig_val == "cautious":
+                    cautious += 1
         
         if bullish > bearish:
             summary["overall_bias"] = "Bullish"
         elif bearish > bullish:
             summary["overall_bias"] = "Bearish"
+        elif cautious > 0:
+            summary["overall_bias"] = "Cautious"
         else:
             summary["overall_bias"] = "Neutral"
         
-        summary["signal_counts"] = {"bullish": bullish, "bearish": bearish}
+        summary["signal_counts"] = {"bullish": bullish, "bearish": bearish, "cautious": cautious}
         
         return summary
     
@@ -291,14 +313,33 @@ class AMRCAIS:
         }
     
     def recalibrate(self, new_data: Optional[pd.DataFrame] = None) -> None:
-        """Recalibrate the system."""
+        """Recalibrate the system through the meta-learning layer."""
         if not self._is_initialized:
             raise RuntimeError("System not initialized")
         
         data = new_data if new_data is not None else self.market_data
         
         logger.info("Recalibrating AMRCAIS...")
-        self.ensemble.recalibrate(data)
+        
+        if self.meta_learner:
+            # Use meta-learner path for proper tracking
+            decision = self.meta_learner.check_recalibration_needed()
+            # Force recalibration regardless of decision
+            from src.meta_learning.recalibration import RecalibrationDecision, RecalibrationReason
+            forced = RecalibrationDecision(
+                should_recalibrate=True,
+                reasons=[RecalibrationReason.HIGH_ERROR_RATE],
+                severity=decision.severity if decision.should_recalibrate else 0.5,
+                recommendations=["Manual recalibration requested"],
+            )
+            self.meta_learner.execute_recalibration(
+                decision=forced,
+                ensemble=self.ensemble,
+                training_data=data,
+            )
+        else:
+            self.ensemble.recalibrate(data)
+        
         logger.info("Recalibration complete")
 
 

@@ -94,6 +94,7 @@ class VolatilityRegimeClassifier(BaseClassifier):
         realized_vol_window: int = 20,
         vix_percentile_window: int = 252,
         use_vix_trend: bool = True,
+        use_garch: bool = True,
         config: Optional[Dict] = None,
     ):
         """Initialize the volatility regime classifier.
@@ -103,6 +104,7 @@ class VolatilityRegimeClassifier(BaseClassifier):
             realized_vol_window: Window for realized volatility calculation
             vix_percentile_window: Window for VIX percentile calculation
             use_vix_trend: Whether to incorporate VIX trend in classification
+            use_garch: Whether to fit GARCH(1,1) for conditional volatility
             config: Optional configuration dictionary
         """
         super().__init__(n_regimes=4, name="Volatility Classifier", config=config)
@@ -111,10 +113,14 @@ class VolatilityRegimeClassifier(BaseClassifier):
         self.realized_vol_window = realized_vol_window
         self.vix_percentile_window = vix_percentile_window
         self.use_vix_trend = use_vix_trend
+        self.use_garch = use_garch
         
         self._vix_history: Optional[pd.Series] = None
         self._learned_thresholds: Dict[str, float] = {}
         self._regime_vix_stats: Dict[int, Dict] = {}
+        self._garch_model = None
+        self._garch_result = None
+        self._realized_vol: Optional[pd.Series] = None
     
     def fit(
         self,
@@ -152,6 +158,14 @@ class VolatilityRegimeClassifier(BaseClassifier):
         
         # Learn thresholds from historical distribution
         self._learn_thresholds(vix)
+        
+        # Calculate realized volatility if SPX returns available
+        if isinstance(data, pd.DataFrame) and "SPX" in data.columns:
+            self._realized_vol = self._calculate_realized_vol(data["SPX"])
+        
+        # Fit GARCH(1,1) model for conditional volatility
+        if self.use_garch:
+            self._fit_garch(vix)
         
         # If labels provided, learn regime-specific VIX statistics
         if labels is not None:
@@ -211,6 +225,99 @@ class VolatilityRegimeClassifier(BaseClassifier):
                     f"mean={self._regime_vix_stats[regime]['mean']:.1f}, "
                     f"median={self._regime_vix_stats[regime]['median']:.1f}"
                 )
+    
+    def _fit_garch(self, vix: pd.Series) -> None:
+        """Fit GARCH(1,1) to VIX returns for conditional volatility.
+        
+        Uses the arch package if available; falls back to simple EWMA.
+        
+        Args:
+            vix: VIX level time series
+        """
+        vix_returns = vix.pct_change().dropna() * 100  # Scale for numerical stability
+        
+        if len(vix_returns) < 50:
+            logger.warning("Insufficient data for GARCH fitting")
+            return
+        
+        try:
+            from arch import arch_model
+            
+            model = arch_model(
+                vix_returns,
+                vol="Garch",
+                p=1,
+                q=1,
+                dist="normal",
+                rescale=False,
+            )
+            result = model.fit(disp="off", show_warning=False)
+            self._garch_model = model
+            self._garch_result = result
+            
+            logger.info(
+                f"GARCH(1,1) fitted: omega={result.params.get('omega', 0):.4f}, "
+                f"alpha={result.params.get('alpha[1]', 0):.4f}, "
+                f"beta={result.params.get('beta[1]', 0):.4f}"
+            )
+        except ImportError:
+            logger.warning(
+                "arch package not installed — using EWMA volatility as fallback. "
+                "Install with: pip install arch"
+            )
+            self._garch_result = None
+        except Exception as e:
+            logger.warning(f"GARCH fitting failed: {e}")
+            self._garch_result = None
+    
+    def _calculate_realized_vol(
+        self,
+        prices: pd.Series,
+    ) -> pd.Series:
+        """Calculate annualized realized volatility from price series.
+        
+        Args:
+            prices: Asset price series (e.g., SPX)
+            
+        Returns:
+            Annualized realized volatility series
+        """
+        log_returns = np.log(prices / prices.shift(1)).dropna()
+        realized = log_returns.rolling(
+            window=self.realized_vol_window
+        ).std() * np.sqrt(252) * 100  # Annualized, in percentage
+        
+        return realized.dropna()
+    
+    def get_garch_forecast(self, horizon: int = 5) -> Optional[Dict[str, float]]:
+        """Get GARCH conditional volatility forecast.
+        
+        Args:
+            horizon: Forecast horizon in trading days
+            
+        Returns:
+            Dict with current conditional vol and forecast, or None
+        """
+        if self._garch_result is None:
+            return None
+        
+        try:
+            forecast = self._garch_result.forecast(horizon=horizon)
+            cond_vol = float(
+                np.sqrt(self._garch_result.conditional_volatility.iloc[-1])
+            )
+            mean_forecast = float(
+                np.sqrt(forecast.variance.iloc[-1].mean())
+            )
+            
+            return {
+                "current_conditional_vol": cond_vol,
+                "forecast_mean_vol": mean_forecast,
+                "horizon": horizon,
+            }
+        except Exception as e:
+            logger.warning(f"GARCH forecast failed: {e}")
+            return None
     
     def predict(
         self,
@@ -275,6 +382,8 @@ class VolatilityRegimeClassifier(BaseClassifier):
                 "vix_percentile": vix_percentile,
                 "vix_trend": vix_trend,
                 "thresholds": self._learned_thresholds,
+                "garch_forecast": self.get_garch_forecast() if self._garch_result else None,
+                "realized_vol": float(self._realized_vol.iloc[-1]) if self._realized_vol is not None and len(self._realized_vol) > 0 else None,
             },
         )
         
@@ -367,6 +476,18 @@ class VolatilityRegimeClassifier(BaseClassifier):
                 z_score = abs(vix - mean) / max(std, 1)
                 confidence = confidence * (1 - min(0.3, z_score * 0.1))
         
+        # Cross-check with REGIME_VIX_PROFILES for profile-based coherence
+        profile = self.REGIME_VIX_PROFILES.get(regime, {})
+        vix_range = profile.get("vix_range", (0, 100))
+        if vix_range[0] <= vix <= vix_range[1]:
+            # VIX falls within expected profile range — boost confidence
+            confidence = min(0.95, confidence + 0.05)
+        elif percentile is not None:
+            pct_range = profile.get("percentile_range", (0, 100))
+            if not (pct_range[0] <= percentile <= pct_range[1]):
+                # Both VIX level and percentile outside profile — reduce confidence
+                confidence = max(0.3, confidence - 0.1)
+        
         return regime, min(0.95, max(0.3, confidence))
     
     def _calculate_probabilities(
@@ -409,12 +530,25 @@ class VolatilityRegimeClassifier(BaseClassifier):
         return probs
     
     def get_feature_importance(self) -> Optional[Dict[str, float]]:
-        """Get feature importance for volatility classifier."""
-        return {
-            "VIX_level": 0.6,
-            "VIX_percentile": 0.25,
+        """Get feature importance for volatility classifier.
+        
+        When GARCH is fitted, importance is adjusted based on
+        how much conditional variance the model explains.
+        """
+        base = {
+            "VIX_level": 0.50,
+            "VIX_percentile": 0.20,
             "VIX_trend": 0.15,
+            "realized_vol": 0.10 if self._realized_vol is not None else 0.0,
+            "garch_cond_vol": 0.05 if self._garch_result is not None else 0.0,
         }
+        
+        # Redistribute unused weight
+        total = sum(base.values())
+        if total > 0 and total != 1.0:
+            base = {k: v / total for k, v in base.items()}
+        
+        return base
     
     def get_regime_thresholds(self) -> pd.DataFrame:
         """Get learned and default thresholds.

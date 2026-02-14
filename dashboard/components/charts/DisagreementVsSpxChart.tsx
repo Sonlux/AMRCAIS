@@ -27,7 +27,10 @@ export default function DisagreementVsSpxChart({
     const d = disagreement[i];
     if (d.disagreement > 0.6 && !bandStart) {
       bandStart = d.date;
-    } else if ((d.disagreement <= 0.6 || i === disagreement.length - 1) && bandStart) {
+    } else if (
+      (d.disagreement <= 0.6 || i === disagreement.length - 1) &&
+      bandStart
+    ) {
       shapes.push({
         type: "rect",
         xref: "x",

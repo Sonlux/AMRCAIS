@@ -94,9 +94,9 @@ class MetaLearner:
     """
     
     DEFAULT_WEIGHTS = {
-        "hmm": 0.30,
+        "hmm": 0.35,
         "ml": 0.25,
-        "correlation": 0.25,
+        "correlation": 0.20,
         "volatility": 0.20,
     }
     
@@ -104,17 +104,20 @@ class MetaLearner:
         self,
         storage_path: Optional[Path] = None,
         enable_adaptive_weights: bool = True,
+        recalibration_cooldown_hours: int = 24,
     ):
         """Initialize the meta-learner.
         
         Args:
             storage_path: Path to persist history (optional)
             enable_adaptive_weights: Whether to adapt classifier weights (default: True)
+            recalibration_cooldown_hours: Minimum hours between recalibrations
         """
         self.tracker = RegimePerformanceTracker(storage_path=storage_path)
         self.trigger = RecalibrationTrigger()
         
         self.enable_adaptive_weights = enable_adaptive_weights
+        self.recalibration_cooldown_hours = recalibration_cooldown_hours
         self.classifier_accuracy: Dict[str, List[float]] = {
             name: [] for name in self.DEFAULT_WEIGHTS.keys()
         }
@@ -122,6 +125,9 @@ class MetaLearner:
         
         self._last_recalibration: Optional[datetime] = None
         self._recalibration_count = 0
+        self._shadow_weights: Optional[Dict[str, float]] = None
+        self._shadow_performance: List[float] = []
+        self._pre_recal_snapshot: Optional[Dict] = None
         
         logger.info("MetaLearner initialized with adaptive learning enabled")
     
@@ -207,14 +213,23 @@ class MetaLearner:
     def execute_recalibration(
         self,
         decision: RecalibrationDecision,
+        ensemble: Optional[object] = None,
+        training_data: Optional[pd.DataFrame] = None,
     ) -> bool:
-        """Execute recalibration based on decision.
+        """Execute recalibration based on decision with walk-forward retraining.
         
-        This is a placeholder for the actual recalibration workflow.
-        In production, this would trigger model retraining.
+        Implements a production recalibration pipeline:
+        1. Check cooldown period to prevent over-recalibration
+        2. Snapshot pre-recalibration state for rollback
+        3. Compute new adaptive weights from classifier accuracy
+        4. Retrain classifiers via ensemble if data provided
+        5. Push updated weights to ensemble
+        6. Enter shadow mode for weight validation
         
         Args:
             decision: RecalibrationDecision from check_recalibration_needed()
+            ensemble: Optional RegimeEnsemble instance to recalibrate
+            training_data: Optional new training data for retraining
             
         Returns:
             True if recalibration executed successfully
@@ -223,42 +238,167 @@ class MetaLearner:
             logger.info("No recalibration needed")
             return True
         
+        # Check cooldown to prevent over-recalibration
+        if self._last_recalibration is not None:
+            hours_since = (datetime.now() - self._last_recalibration).total_seconds() / 3600
+            if hours_since < self.recalibration_cooldown_hours:
+                logger.info(
+                    f"Recalibration cooldown active: {hours_since:.1f}h since last "
+                    f"(cooldown: {self.recalibration_cooldown_hours}h). Skipping."
+                )
+                return False
+        
         logger.warning(
-            f"EXECUTING RECALIBRATION: {decision.urgency_level}"
+            f"EXECUTING RECALIBRATION #{self._recalibration_count + 1}: "
+            f"{decision.urgency_level} (severity={decision.severity:.2f})"
         )
         
         for reason in decision.reasons:
             logger.warning(f"  Reason: {reason}")
         
-        for rec in decision.recommendations:
-            logger.info(f"  Recommendation: {rec}")
+        # Step 1: Snapshot pre-recalibration state for rollback
+        self._pre_recal_snapshot = {
+            "weights": self.adaptive_weights.copy(),
+            "timestamp": datetime.now(),
+            "accuracy": self.tracker.evaluate_prediction_accuracy(),
+            "recalibration_count": self._recalibration_count,
+        }
         
-        # TODO: Implement actual recalibration workflow
-        # 1. Fetch latest training data
-        # 2. Retrain classifiers with updated parameters
-        # 3. Validate on holdout set
-        # 4. Update ensemble with new classifiers
+        # Step 2: Handle specific recalibration reasons
+        recalibrated = False
         
-        # For now, log and adjust thresholds if needed
         if RecalibrationReason.EXCESSIVE_FLIPPING in decision.reasons:
-            # Increase confidence threshold to reduce flipping
-            logger.info("Adjusting confidence threshold to reduce flipping")
-            # self.trigger.adjust_thresholds({"flip_threshold": 4})
+            logger.info("Addressing excessive flipping: boosting HMM weight for temporal smoothing")
+            # HMM captures regime persistence better; increase its weight
+            self.adaptive_weights["hmm"] = min(0.50, self.adaptive_weights.get("hmm", 0.35) * 1.15)
+            self._normalize_weights()
+            recalibrated = True
         
         if RecalibrationReason.PERSISTENT_DISAGREEMENT in decision.reasons:
-            # May need to add new regime or update training data
-            logger.info("Persistent disagreement suggests novel market regime")
+            logger.info("Addressing persistent disagreement: rebalancing toward better-performing classifiers")
+            # Recalculate weights based on recent agreement with market behavior
+            self._update_adaptive_weights()
+            recalibrated = True
+        
+        if RecalibrationReason.HIGH_ERROR_RATE in decision.reasons:
+            logger.info("Addressing high error rate: retraining requested")
+            if ensemble is not None and training_data is not None and len(training_data) >= 252:
+                try:
+                    # Retrain the ensemble with recent data
+                    ensemble.recalibrate(training_data)
+                    logger.info("Ensemble classifiers retrained with latest data")
+                    recalibrated = True
+                except Exception as e:
+                    logger.error(f"Retraining failed: {e}. Rolling back.")
+                    self._rollback_recalibration()
+                    return False
+            else:
+                logger.warning("Retraining requested but no ensemble/data provided. Adjusting weights only.")
+                self._update_adaptive_weights()
+                recalibrated = True
+        
+        if RecalibrationReason.LOW_CONFIDENCE in decision.reasons:
+            logger.info("Addressing low confidence: equalizing weights to reduce bias")
+            # When confidence is low, move toward equal weights to reduce model bias
+            equal_weight = 1.0 / len(self.adaptive_weights)
+            for name in self.adaptive_weights:
+                self.adaptive_weights[name] = 0.7 * self.adaptive_weights[name] + 0.3 * equal_weight
+            self._normalize_weights()
+            recalibrated = True
+        
+        if RecalibrationReason.MARKET_REGIME_MISMATCH in decision.reasons:
+            logger.info("Addressing market-regime mismatch: updating weights based on accuracy")
+            self._update_adaptive_weights()
+            recalibrated = True
+        
+        # Step 3: Push updated weights to ensemble
+        if recalibrated and ensemble is not None:
+            try:
+                ensemble.update_weights(self.adaptive_weights)
+                logger.info(f"Pushed adaptive weights to ensemble: {self.adaptive_weights}")
+            except Exception as e:
+                logger.error(f"Failed to push weights to ensemble: {e}")
+        
+        # Step 4: Enter shadow mode — track next predictions to validate
+        self._shadow_weights = self.adaptive_weights.copy()
+        self._shadow_performance = []
         
         # Mark recalibration as executed
         self._last_recalibration = datetime.now()
         self._recalibration_count += 1
         
+        for rec in decision.recommendations:
+            logger.info(f"  Recommendation: {rec}")
+        
         logger.info(
             f"Recalibration #{self._recalibration_count} completed "
-            f"(severity: {decision.severity:.2f})"
+            f"(severity: {decision.severity:.2f}). "
+            f"New weights: {self.adaptive_weights}"
         )
         
         return True
+    
+    def _normalize_weights(self) -> None:
+        """Normalize adaptive weights to sum to 1.0."""
+        total = sum(self.adaptive_weights.values())
+        if total > 0:
+            self.adaptive_weights = {
+                k: v / total for k, v in self.adaptive_weights.items()
+            }
+    
+    def _rollback_recalibration(self) -> None:
+        """Rollback to pre-recalibration state if something went wrong."""
+        if self._pre_recal_snapshot:
+            self.adaptive_weights = self._pre_recal_snapshot["weights"]
+            logger.warning(
+                f"Rolled back recalibration to snapshot from "
+                f"{self._pre_recal_snapshot['timestamp'].isoformat()}"
+            )
+            self._pre_recal_snapshot = None
+    
+    def validate_shadow_mode(self) -> Optional[Dict]:
+        """Validate recalibration results in shadow mode.
+        
+        After recalibration, this checks if the new weights perform
+        better than the old ones. Called periodically after recalibration.
+        
+        Returns:
+            Validation result dict, or None if not in shadow mode
+        """
+        if self._shadow_weights is None:
+            return None
+        
+        # Need at least 10 observations to validate
+        if len(self._shadow_performance) < 10:
+            return {"status": "collecting_data", "observations": len(self._shadow_performance)}
+        
+        avg_accuracy = np.mean(self._shadow_performance) if self._shadow_performance else 0
+        pre_accuracy = self._pre_recal_snapshot.get("accuracy", 0.5) if self._pre_recal_snapshot else 0.5
+        
+        improved = avg_accuracy >= pre_accuracy
+        
+        if not improved:
+            logger.warning(
+                f"Shadow mode: New weights underperforming "
+                f"(new={avg_accuracy:.2%} vs old={pre_accuracy:.2%}). Rolling back."
+            )
+            self._rollback_recalibration()
+        else:
+            logger.info(
+                f"Shadow mode: New weights validated "
+                f"(new={avg_accuracy:.2%} vs old={pre_accuracy:.2%})"
+            )
+        
+        # Exit shadow mode
+        self._shadow_weights = None
+        self._shadow_performance = []
+        
+        return {
+            "status": "validated" if improved else "rolled_back",
+            "new_accuracy": avg_accuracy,
+            "old_accuracy": pre_accuracy,
+            "improved": improved,
+        }
     
     def get_performance_metrics(
         self,

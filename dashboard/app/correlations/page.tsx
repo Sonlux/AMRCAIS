@@ -201,9 +201,7 @@ function BaselineDeviation({
   // Simulate baseline as identity matrix (diagonal = 1, off-diagonal = 0)
   // Deviation = current − 0 = current for off-diagonal, 0 on diagonal
   const deviation = useMemo(() => {
-    return matrix.map((row, i) =>
-      row.map((val, j) => (i === j ? 0 : val)),
-    );
+    return matrix.map((row, i) => row.map((val, j) => (i === j ? 0 : val)));
   }, [matrix]);
 
   return <CorrelationHeatmap assets={assets} matrix={deviation} height={380} />;
@@ -298,7 +296,8 @@ function NormalizedPairChart({
   pricesB: { date: string; close: number }[];
 }) {
   const normalize = (prices: { date: string; close: number }[]) => {
-    if (!prices.length) return { dates: [] as string[], values: [] as number[] };
+    if (!prices.length)
+      return { dates: [] as string[], values: [] as number[] };
     const base = prices[0].close;
     return {
       dates: prices.map((p) => p.date),

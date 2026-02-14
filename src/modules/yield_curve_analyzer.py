@@ -31,6 +31,7 @@ import logging
 import pandas as pd
 import numpy as np
 from scipy import interpolate
+from scipy.optimize import minimize
 
 from src.modules.base import AnalyticalModule, ModuleSignal
 
@@ -146,6 +147,7 @@ class YieldCurveAnalyzer(AnalyticalModule):
         
         self.curve_history: List[CurveSnapshot] = []
         self._spline_cache: Dict[str, Any] = {}
+        self._ns_params_history: List[Dict[str, float]] = []
         
         # Thresholds for curve shape classification
         self.inversion_threshold = -0.1  # % for inversion
@@ -202,8 +204,19 @@ class YieldCurveAnalyzer(AnalyticalModule):
         )
         self.curve_history.append(snapshot)
         
+        # Fit Nelson-Siegel model for level/slope/curvature decomposition
+        ns_params = self.fit_nelson_siegel(yields)
+        if ns_params:
+            self._ns_params_history.append(ns_params)
+        
+        # Cache spline for this snapshot
+        self._update_spline_cache(yields)
+        
         # Analyze curve dynamics if we have history
         dynamics = self._analyze_dynamics()
+        
+        # Calculate forward rates
+        forwards = self.calculate_forward_rates(yields)
         
         # Generate regime-adaptive signal
         signal = self._generate_signal(shape, dynamics, slope_2_10)
@@ -216,6 +229,8 @@ class YieldCurveAnalyzer(AnalyticalModule):
             "curvature": curvature,
             "yields": yields,
             "dynamics": dynamics,
+            "nelson_siegel": ns_params,
+            "forward_rates": forwards,
             "regime_parameters": self.get_current_parameters(),
         }
     
@@ -274,7 +289,11 @@ class YieldCurveAnalyzer(AnalyticalModule):
         return None
     
     def _analyze_dynamics(self) -> Dict[str, Any]:
-        """Analyze recent curve dynamics."""
+        """Analyze recent curve dynamics using multi-period comparison.
+        
+        Compares current snapshot against multiple lookback periods
+        to detect trend and acceleration in curve movement.
+        """
         if len(self.curve_history) < 2:
             return {"direction": "unknown", "magnitude": 0}
         
@@ -290,11 +309,152 @@ class YieldCurveAnalyzer(AnalyticalModule):
         else:
             direction = "flattening"
         
+        # Multi-period analysis (5- and 20-period if available)
+        trend_5 = None
+        trend_20 = None
+        
+        if len(self.curve_history) >= 5:
+            prior_5 = self.curve_history[-5]
+            trend_5 = recent.slope_2_10 - prior_5.slope_2_10
+        
+        if len(self.curve_history) >= 20:
+            prior_20 = self.curve_history[-20]
+            trend_20 = recent.slope_2_10 - prior_20.slope_2_10
+        
+        # Acceleration: is the rate of change increasing?
+        acceleration = None
+        if len(self.curve_history) >= 3:
+            prev_change = prior.slope_2_10 - self.curve_history[-3].slope_2_10
+            acceleration = slope_change - prev_change
+        
+        # Nelson-Siegel factor dynamics
+        ns_dynamics = None
+        if len(self._ns_params_history) >= 2:
+            curr_ns = self._ns_params_history[-1]
+            prev_ns = self._ns_params_history[-2]
+            ns_dynamics = {
+                "level_change": curr_ns["level"] - prev_ns["level"],
+                "slope_change": curr_ns["slope"] - prev_ns["slope"],
+                "curvature_change": curr_ns["curvature"] - prev_ns["curvature"],
+            }
+        
         return {
             "direction": direction,
             "slope_change": slope_change,
             "magnitude": abs(slope_change),
+            "trend_5d": trend_5,
+            "trend_20d": trend_20,
+            "acceleration": acceleration,
+            "ns_dynamics": ns_dynamics,
         }
+    
+    def fit_nelson_siegel(
+        self,
+        yields: Dict[str, float],
+    ) -> Optional[Dict[str, float]]:
+        """Fit Nelson-Siegel model to the yield curve.
+        
+        The Nelson-Siegel model decomposes the curve into three factors:
+          y(t) = beta0 + beta1 * ((1-exp(-t/tau))/(t/tau))
+                       + beta2 * ((1-exp(-t/tau))/(t/tau) - exp(-t/tau))
+        
+        Where:
+          beta0 = long-term level (level)
+          beta1 = short-term component (slope, negative = normal)  
+          beta2 = medium-term component (curvature)
+          tau   = decay factor
+        
+        Args:
+            yields: Dict mapping tenor string to yield value
+            
+        Returns:
+            Dict with level, slope, curvature, tau, fit_error, or None
+        """
+        # Convert to arrays
+        tenors: List[float] = []
+        values: List[float] = []
+        
+        for tenor_str, yield_val in yields.items():
+            if tenor_str in self.TENOR_TO_YEARS:
+                tenors.append(self.TENOR_TO_YEARS[tenor_str])
+                values.append(yield_val)
+        
+        if len(tenors) < 4:
+            return None
+        
+        t_arr = np.array(tenors)
+        y_arr = np.array(values)
+        
+        def _ns_curve(params: np.ndarray, t: np.ndarray) -> np.ndarray:
+            beta0, beta1, beta2, tau = params
+            tau = max(tau, 0.01)  # Prevent division by zero
+            x = t / tau
+            factor1 = np.where(x < 1e-6, 1.0, (1 - np.exp(-x)) / x)
+            factor2 = factor1 - np.exp(-x)
+            return beta0 + beta1 * factor1 + beta2 * factor2
+        
+        def _objective(params: np.ndarray) -> float:
+            fitted = _ns_curve(params, t_arr)
+            return float(np.sum((y_arr - fitted) ** 2))
+        
+        # Initial guesses from data
+        beta0_init = float(y_arr[-1]) if len(y_arr) > 0 else 3.0
+        beta1_init = float(y_arr[0] - y_arr[-1]) if len(y_arr) > 1 else -1.0
+        beta2_init = 0.0
+        tau_init = 1.5
+        
+        try:
+            result = minimize(
+                _objective,
+                x0=[beta0_init, beta1_init, beta2_init, tau_init],
+                method="Nelder-Mead",
+                options={"maxiter": 5000, "xatol": 1e-8, "fatol": 1e-8},
+            )
+            
+            beta0, beta1, beta2, tau = result.x
+            fitted = _ns_curve(result.x, t_arr)
+            rmse = float(np.sqrt(np.mean((y_arr - fitted) ** 2)))
+            
+            params = {
+                "level": float(beta0),
+                "slope": float(beta1),
+                "curvature": float(beta2),
+                "tau": float(abs(tau)),
+                "fit_rmse": rmse,
+            }
+            
+            logger.info(
+                f"Nelson-Siegel fit: level={beta0:.3f}, slope={beta1:.3f}, "
+                f"curvature={beta2:.3f}, tau={abs(tau):.3f}, RMSE={rmse:.4f}"
+            )
+            
+            return params
+            
+        except Exception as e:
+            logger.warning(f"Nelson-Siegel fitting failed: {e}")
+            return None
+    
+    def _update_spline_cache(self, yields: Dict[str, float]) -> None:
+        """Cache the current cubic spline interpolation."""
+        tenors_years: List[float] = []
+        yield_values: List[float] = []
+        
+        for tenor_str, yield_val in yields.items():
+            if tenor_str in self.TENOR_TO_YEARS:
+                tenors_years.append(self.TENOR_TO_YEARS[tenor_str])
+                yield_values.append(yield_val)
+        
+        if len(tenors_years) >= 3:
+            sorted_pairs = sorted(zip(tenors_years, yield_values))
+            t, y = zip(*sorted_pairs)
+            try:
+                self._spline_cache = {
+                    "spline": interpolate.CubicSpline(t, y),
+                    "tenors": t,
+                    "yields": y,
+                }
+            except Exception:
+                pass
     
     def _generate_signal(
         self,

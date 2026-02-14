@@ -146,6 +146,9 @@ class OptionsSurfaceMonitor(AnalyticalModule):
     def analyze(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Analyze options surface data.
         
+        Extracts VIX as ATM vol proxy, computes put skew from available
+        data, analyzes term structure, and constructs VolSurface snapshots.
+        
         Args:
             data: DataFrame with VIX, vol surface data, etc.
             
@@ -153,19 +156,67 @@ class OptionsSurfaceMonitor(AnalyticalModule):
             Comprehensive options surface analysis
         """
         signals = []
+        surface_snapshot = None
         
         # Extract VIX as ATM vol proxy
         vix = None
         if "VIX" in data.columns:
-            vix = data["VIX"].dropna().iloc[-1] if len(data["VIX"].dropna()) > 0 else None
+            vix_series = data["VIX"].dropna()
+            vix = float(vix_series.iloc[-1]) if len(vix_series) > 0 else None
         elif "VIXCLS" in data.columns:
-            vix = data["VIXCLS"].dropna().iloc[-1] if len(data["VIXCLS"].dropna()) > 0 else None
+            vix_series = data["VIXCLS"].dropna()
+            vix = float(vix_series.iloc[-1]) if len(vix_series) > 0 else None
         
         if vix is not None:
             vol_signal = self._analyze_vol_level(vix)
             signals.append(vol_signal)
         
-        # TODO: Add skew analysis when data available
+        # Compute put skew proxy from VIX dynamics
+        put_skew_value = None
+        if vix is not None and ("VIX" in data.columns or "VIXCLS" in data.columns):
+            vix_col = "VIX" if "VIX" in data.columns else "VIXCLS"
+            vix_series = data[vix_col].dropna()
+            if len(vix_series) >= 20:
+                # Use VIX mean-reversion as skew proxy: how far above mean
+                vix_mean = float(vix_series.iloc[-60:].mean()) if len(vix_series) >= 60 else float(vix_series.mean())
+                put_skew_value = vix - vix_mean  # positive = elevated skew
+                
+                # Get prior skew for change detection
+                prior_vix = float(vix_series.iloc[-2]) if len(vix_series) >= 2 else None
+                prior_skew = (prior_vix - vix_mean) if prior_vix is not None else None
+                
+                skew_result = self.analyze_skew(
+                    put_skew=put_skew_value,
+                    atm_vol=vix,
+                    prior_put_skew=prior_skew,
+                )
+                signals.append(skew_result["signal"])
+        
+        # Analyze term structure using VIX vs realized vol
+        if vix is not None and "SPX" in data.columns:
+            spx = data["SPX"].dropna()
+            if len(spx) >= 20:
+                # Realized vol as "near term" proxy, VIX as "far term"
+                realized_vol = float(spx.pct_change().iloc[-20:].std() * np.sqrt(252) * 100)
+                term_result = self.analyze_term_structure(
+                    near_vol=realized_vol,
+                    far_vol=vix,
+                    near_days=20,
+                    far_days=30,
+                )
+                signals.append(term_result["signal"])
+        
+        # Construct VolSurface snapshot
+        if vix is not None:
+            surface_snapshot = VolSurface(
+                timestamp=datetime.now(),
+                atm_vol=vix,
+                put_skew=put_skew_value or 0.0,
+                call_skew=-(put_skew_value or 0.0) * 0.5,  # approx
+                term_structure={30: vix},
+                butterfly=abs(put_skew_value or 0.0) * 0.3,
+            )
+            self.surface_history.append(surface_snapshot)
         
         if signals:
             avg_strength = np.mean([s.strength for s in signals])
@@ -181,6 +232,8 @@ class OptionsSurfaceMonitor(AnalyticalModule):
                     explanation=f"Options surface analysis based on {len(signals)} metrics",
                 ),
                 "vix_level": vix,
+                "put_skew": put_skew_value,
+                "surface_snapshot": surface_snapshot,
                 "individual_signals": signals,
                 "regime_parameters": self.get_current_parameters(),
             }

@@ -194,9 +194,30 @@ describe("DisagreementVsSpxChart", () => {
     { date: "2024-01-03", disagreement: 0.5, threshold_exceeded: false },
   ];
   const prices = [
-    { date: "2024-01-01", open: null, high: null, low: null, close: 4800, volume: null },
-    { date: "2024-01-02", open: null, high: null, low: null, close: 4750, volume: null },
-    { date: "2024-01-03", open: null, high: null, low: null, close: 4850, volume: null },
+    {
+      date: "2024-01-01",
+      open: null,
+      high: null,
+      low: null,
+      close: 4800,
+      volume: null,
+    },
+    {
+      date: "2024-01-02",
+      open: null,
+      high: null,
+      low: null,
+      close: 4750,
+      volume: null,
+    },
+    {
+      date: "2024-01-03",
+      open: null,
+      high: null,
+      low: null,
+      close: 4850,
+      volume: null,
+    },
   ];
 
   it("renders without crashing", () => {

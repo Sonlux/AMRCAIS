@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Union
 import logging
 import os
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import (
     create_engine,
@@ -92,6 +93,45 @@ class RegimeHistory(Base):
     ml_vote = Column(Integer)
     correlation_vote = Column(Integer)
     volatility_vote = Column(Integer)
+
+
+class ModuleSignalHistory(Base):
+    """SQLAlchemy model for storing analytical module signals."""
+    
+    __tablename__ = "module_signal_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(DateTime, nullable=False, index=True)
+    module_name = Column(String(50), nullable=False, index=True)
+    signal = Column(String(20), nullable=False)  # bullish/bearish/neutral/cautious
+    strength = Column(Float, nullable=False)
+    confidence = Column(Float, nullable=False)
+    explanation = Column(String(500))
+    regime_context = Column(String(200))
+    regime_id = Column(Integer)
+    metadata_json = Column(String(2000))  # JSON-serialized metadata
+    
+    __table_args__ = (
+        Index("idx_module_signal_date", "module_name", "date"),
+    )
+
+
+class ClassificationHistory(Base):
+    """SQLAlchemy model for full regime classification history with all fields."""
+    
+    __tablename__ = "classification_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    regime = Column(Integer, nullable=False)
+    confidence = Column(Float, nullable=False)
+    disagreement = Column(Float, nullable=False)
+    individual_predictions_json = Column(String(500))  # JSON dict
+    market_state_json = Column(String(2000))  # JSON dict
+    
+    __table_args__ = (
+        Index("idx_classification_timestamp", "timestamp"),
+    )
 
 
 class DatabaseStorage:
@@ -570,5 +610,214 @@ class DatabaseStorage:
             session.rollback()
             logger.error(f"Error clearing database: {e}")
             raise
+        finally:
+            session.close()
+    
+    def save_module_signal(
+        self,
+        module_name: str,
+        signal: str,
+        strength: float,
+        confidence: float,
+        explanation: str = "",
+        regime_context: str = "",
+        regime_id: Optional[int] = None,
+        metadata: Optional[Dict] = None,
+        date: Optional[datetime] = None,
+    ) -> None:
+        """Save an analytical module signal to database.
+        
+        Args:
+            module_name: Name of the module (e.g., "macro", "yield_curve")
+            signal: Signal direction ("bullish", "bearish", "neutral", "cautious")
+            strength: Signal strength (0-1)
+            confidence: Confidence (0-1)
+            explanation: Human-readable explanation
+            regime_context: Regime context string
+            regime_id: Current regime ID
+            metadata: Additional module-specific metadata
+            date: Signal timestamp (default: now)
+        """
+        import json
+        session = self.Session()
+        
+        try:
+            record = ModuleSignalHistory(
+                date=date or datetime.now(),
+                module_name=module_name,
+                signal=signal,
+                strength=strength,
+                confidence=confidence,
+                explanation=explanation[:500] if explanation else "",
+                regime_context=regime_context[:200] if regime_context else "",
+                regime_id=regime_id,
+                metadata_json=json.dumps(metadata) if metadata else None,
+            )
+            session.add(record)
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            logger.error(f"Database error saving module signal: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def load_module_signals(
+        self,
+        module_name: Optional[str] = None,
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
+        limit: int = 1000,
+    ) -> pd.DataFrame:
+        """Load module signal history from database.
+        
+        Args:
+            module_name: Filter by module name (optional)
+            start_date: Start of date range
+            end_date: End of date range
+            limit: Maximum number of records
+            
+        Returns:
+            DataFrame with module signal history
+        """
+        session = self.Session()
+        
+        try:
+            query = select(ModuleSignalHistory)
+            
+            if module_name:
+                query = query.where(ModuleSignalHistory.module_name == module_name)
+            if start_date:
+                if isinstance(start_date, str):
+                    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+                query = query.where(ModuleSignalHistory.date >= start_date)
+            if end_date:
+                if isinstance(end_date, str):
+                    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+                query = query.where(ModuleSignalHistory.date <= end_date)
+            
+            query = query.order_by(ModuleSignalHistory.date.desc()).limit(limit)
+            
+            result = session.execute(query)
+            rows = result.scalars().all()
+            
+            if not rows:
+                return pd.DataFrame()
+            
+            data = []
+            for r in rows:
+                data.append({
+                    "Date": r.date,
+                    "Module": r.module_name,
+                    "Signal": r.signal,
+                    "Strength": r.strength,
+                    "Confidence": r.confidence,
+                    "Explanation": r.explanation,
+                    "Regime_Context": r.regime_context,
+                    "Regime_ID": r.regime_id,
+                })
+            
+            df = pd.DataFrame(data)
+            df.set_index("Date", inplace=True)
+            return df
+            
+        finally:
+            session.close()
+    
+    def save_classification(
+        self,
+        regime: int,
+        confidence: float,
+        disagreement: float,
+        individual_predictions: Optional[Dict[str, int]] = None,
+        market_state: Optional[Dict[str, float]] = None,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
+        """Save a full regime classification with all fields preserved.
+        
+        Unlike save_regime(), this preserves individual_predictions and
+        market_state as JSON for complete history reconstruction.
+        
+        Args:
+            regime: Regime ID (1-4)
+            confidence: Confidence (0-1)
+            disagreement: Disagreement index (0-1)
+            individual_predictions: Dict of classifier → regime
+            market_state: Market data snapshot
+            timestamp: Classification time
+        """
+        import json
+        session = self.Session()
+        
+        try:
+            record = ClassificationHistory(
+                timestamp=timestamp or datetime.now(),
+                regime=regime,
+                confidence=confidence,
+                disagreement=disagreement,
+                individual_predictions_json=json.dumps(individual_predictions) if individual_predictions else None,
+                market_state_json=json.dumps(
+                    {k: float(v) if isinstance(v, (int, float, np.integer, np.floating)) else str(v) 
+                     for k, v in market_state.items()}
+                ) if market_state else None,
+            )
+            session.add(record)
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            logger.error(f"Database error saving classification: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def load_classifications(
+        self,
+        start_date: Optional[Union[str, datetime]] = None,
+        end_date: Optional[Union[str, datetime]] = None,
+        limit: int = 5000,
+    ) -> List[Dict]:
+        """Load full classification history with all fields.
+        
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+            limit: Maximum records
+            
+        Returns:
+            List of classification dicts with individual_predictions and market_state
+        """
+        import json
+        session = self.Session()
+        
+        try:
+            query = select(ClassificationHistory)
+            
+            if start_date:
+                if isinstance(start_date, str):
+                    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+                query = query.where(ClassificationHistory.timestamp >= start_date)
+            if end_date:
+                if isinstance(end_date, str):
+                    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+                query = query.where(ClassificationHistory.timestamp <= end_date)
+            
+            query = query.order_by(ClassificationHistory.timestamp).limit(limit)
+            
+            result = session.execute(query)
+            rows = result.scalars().all()
+            
+            records = []
+            for r in rows:
+                records.append({
+                    "timestamp": r.timestamp,
+                    "regime": r.regime,
+                    "confidence": r.confidence,
+                    "disagreement": r.disagreement,
+                    "individual_predictions": json.loads(r.individual_predictions_json) if r.individual_predictions_json else {},
+                    "market_state": json.loads(r.market_state_json) if r.market_state_json else {},
+                })
+            
+            return records
+            
         finally:
             session.close()

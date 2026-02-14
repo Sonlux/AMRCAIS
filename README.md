@@ -25,12 +25,12 @@ Traditional market analysis tools treat signals as static. AMRCAIS solves this w
 
 ### The Four Market Regimes
 
-| Regime | Characteristics | Examples |
-|--------|----------------|----------|
-| **1. Risk-On Growth** | Equities ↑, Bonds ↓, VIX <20 | 2017-2019, 2023-2024 |
-| **2. Risk-Off Crisis** | Correlations spike to +1, VIX >30 | March 2020, Q4 2008 |
-| **3. Stagflation** | Commodities ↑, Equities flat, Rates ↑ | 2022, 1970s |
-| **4. Disinflationary Boom** | Equities + Bonds both ↑, Rates ↓ | Late 2023, 2010-2014 |
+| Regime                      | Characteristics                       | Examples             |
+| --------------------------- | ------------------------------------- | -------------------- |
+| **1. Risk-On Growth**       | Equities ↑, Bonds ↓, VIX <20          | 2017-2019, 2023-2024 |
+| **2. Risk-Off Crisis**      | Correlations spike to +1, VIX >30     | March 2020, Q4 2008  |
+| **3. Stagflation**          | Commodities ↑, Equities flat, Rates ↑ | 2022, 1970s          |
+| **4. Disinflationary Boom** | Equities + Bonds both ↑, Rates ↓      | Late 2023, 2010-2014 |
 
 ---
 
@@ -225,27 +225,27 @@ AMRCAIS/
 
 The FastAPI backend exposes 22 endpoints:
 
-| Category | Endpoint | Description |
-|----------|----------|-------------|
-| **Regime** | `GET /api/regime/current` | Current regime classification |
-| | `GET /api/regime/history` | Regime history with transitions |
-| | `GET /api/regime/ensemble` | Ensemble classifier details |
-| | `GET /api/regime/disagreement` | Disagreement index time series |
-| **Modules** | `GET /api/modules/macro` | Macro event impact analysis |
-| | `GET /api/modules/yield-curve` | Yield curve analysis |
-| | `GET /api/modules/options` | Options surface monitor |
-| | `GET /api/modules/factors` | Factor exposure analysis |
-| | `GET /api/modules/correlations` | Correlation anomaly detection |
-| | `GET /api/modules/all` | All module signals combined |
-| **Data** | `GET /api/data/assets` | Asset price data |
-| | `GET /api/data/macro/{indicator}` | Specific macro indicator data |
-| | `GET /api/data/status` | Data pipeline health |
-| **Backtest** | `POST /api/backtest/run` | Run regime-based backtest |
-| | `GET /api/backtest/results` | Retrieve backtest results |
-| **Meta** | `GET /api/meta/performance` | System performance metrics |
-| | `GET /api/meta/accuracy` | Classifier accuracy over time |
-| | `GET /api/meta/disagreement` | Disagreement vs SPX analysis |
-| | `GET /api/meta/recalibration` | Recalibration status |
+| Category     | Endpoint                          | Description                     |
+| ------------ | --------------------------------- | ------------------------------- |
+| **Regime**   | `GET /api/regime/current`         | Current regime classification   |
+|              | `GET /api/regime/history`         | Regime history with transitions |
+|              | `GET /api/regime/ensemble`        | Ensemble classifier details     |
+|              | `GET /api/regime/disagreement`    | Disagreement index time series  |
+| **Modules**  | `GET /api/modules/macro`          | Macro event impact analysis     |
+|              | `GET /api/modules/yield-curve`    | Yield curve analysis            |
+|              | `GET /api/modules/options`        | Options surface monitor         |
+|              | `GET /api/modules/factors`        | Factor exposure analysis        |
+|              | `GET /api/modules/correlations`   | Correlation anomaly detection   |
+|              | `GET /api/modules/all`            | All module signals combined     |
+| **Data**     | `GET /api/data/assets`            | Asset price data                |
+|              | `GET /api/data/macro/{indicator}` | Specific macro indicator data   |
+|              | `GET /api/data/status`            | Data pipeline health            |
+| **Backtest** | `POST /api/backtest/run`          | Run regime-based backtest       |
+|              | `GET /api/backtest/results`       | Retrieve backtest results       |
+| **Meta**     | `GET /api/meta/performance`       | System performance metrics      |
+|              | `GET /api/meta/accuracy`          | Classifier accuracy over time   |
+|              | `GET /api/meta/disagreement`      | Disagreement vs SPX analysis    |
+|              | `GET /api/meta/recalibration`     | Recalibration status            |
 
 Full interactive API docs available at `/docs` when the server is running.
 
@@ -255,14 +255,14 @@ Full interactive API docs available at `/docs` when the server is running.
 
 The Next.js dashboard provides 7 pages with 18 interactive chart components:
 
-| Page | Charts | Key Features |
-|------|--------|-------------|
-| **Overview** | Regime gauge, summary cards | Current regime at a glance |
-| **Regime** | Timeline, confidence, ensemble heatmap | Historical regime analysis |
-| **Modules** | Signal charts per module | Regime-adaptive signal interpretation |
-| **Correlations** | Correlation matrix, anomaly scatter, 3D vol surface | Cross-asset monitoring |
-| **Backtest** | Equity curve, drawdown chart, trade log | Strategy validation |
-| **Meta** | Accuracy line chart, disagreement vs SPX | System self-assessment |
+| Page             | Charts                                              | Key Features                          |
+| ---------------- | --------------------------------------------------- | ------------------------------------- |
+| **Overview**     | Regime gauge, summary cards                         | Current regime at a glance            |
+| **Regime**       | Timeline, confidence, ensemble heatmap              | Historical regime analysis            |
+| **Modules**      | Signal charts per module                            | Regime-adaptive signal interpretation |
+| **Correlations** | Correlation matrix, anomaly scatter, 3D vol surface | Cross-asset monitoring                |
+| **Backtest**     | Equity curve, drawdown chart, trade log             | Strategy validation                   |
+| **Meta**         | Accuracy line chart, disagreement vs SPX            | System self-assessment                |
 
 Chart technologies: Plotly.js 3.3.1 (15 chart types incl. 3D surfaces), TradingView Lightweight Charts 5.1.0 (equity curves, regime timeline).
 
@@ -307,46 +307,46 @@ npx vitest
 
 **Backend Test Suite (501 tests):**
 
-| Category | Tests | Coverage |
-|----------|-------|----------|
-| Core system (regime, modules, pipeline) | 29 | Classifiers, ensemble, modules, pipeline |
-| API regime endpoints | 50+ | All regime routes |
-| API module endpoints | 50+ | All module routes |
-| API data endpoints | 50+ | Data + macro routes |
-| API backtest endpoints | 50+ | Backtest engine |
-| API meta endpoints | 50+ | Accuracy, disagreement, performance |
-| Security & middleware | 30+ | OWASP, CSRF, rate limiting |
-| Coverage boost & edge cases | 100+ | Error paths, edge cases |
+| Category                                | Tests | Coverage                                 |
+| --------------------------------------- | ----- | ---------------------------------------- |
+| Core system (regime, modules, pipeline) | 29    | Classifiers, ensemble, modules, pipeline |
+| API regime endpoints                    | 50+   | All regime routes                        |
+| API module endpoints                    | 50+   | All module routes                        |
+| API data endpoints                      | 50+   | Data + macro routes                      |
+| API backtest endpoints                  | 50+   | Backtest engine                          |
+| API meta endpoints                      | 50+   | Accuracy, disagreement, performance      |
+| Security & middleware                   | 30+   | OWASP, CSRF, rate limiting               |
+| Coverage boost & edge cases             | 100+  | Error paths, edge cases                  |
 
 **Frontend Test Suite (87 tests):**
 
-| Category | Tests | Coverage |
-|----------|-------|----------|
-| Chart components | 50+ | All 18 chart types |
-| API client | 15+ | Fetch functions, error handling |
-| Utilities | 20+ | Hooks, helpers, formatters |
+| Category         | Tests | Coverage                        |
+| ---------------- | ----- | ------------------------------- |
+| Chart components | 50+   | All 18 chart types              |
+| API client       | 15+   | Fetch functions, error handling |
+| Utilities        | 20+   | Hooks, helpers, formatters      |
 
 ---
 
 ## Analytical Modules
 
-| Module | Purpose | Regime Adaptation |
-|--------|---------|------------------|
-| **Macro Event Tracker** | Monitors NFP, CPI, FOMC impact | Different event weights per regime |
-| **Yield Curve Analyzer** | Duration, DV01, curve shapes | Steepening bullish in Growth, bearish in Stagflation |
-| **Options Surface Monitor** | IV surfaces, skew analysis | Adjusted skew thresholds per volatility regime |
-| **Factor Exposure Analyzer** | Value, Momentum, Quality factors | Factor recommendations rotate by regime |
-| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific correlation baselines |
+| Module                           | Purpose                            | Regime Adaptation                                    |
+| -------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC impact     | Different event weights per regime                   |
+| **Yield Curve Analyzer**         | Duration, DV01, curve shapes       | Steepening bullish in Growth, bearish in Stagflation |
+| **Options Surface Monitor**      | IV surfaces, skew analysis         | Adjusted skew thresholds per volatility regime       |
+| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors   | Factor recommendations rotate by regime              |
+| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific correlation baselines                |
 
 ---
 
 ## Data Sources
 
-| Source | Data | Priority |
-|--------|------|----------|
-| **FRED API** | Macroeconomic data (NFP, CPI, yield curves) | Primary |
-| **yfinance** | Equity & ETF prices (SPX, TLT, GLD, VIX) | Primary |
-| **Alpha Vantage** | Intraday data, supplementary | Fallback |
+| Source            | Data                                        | Priority |
+| ----------------- | ------------------------------------------- | -------- |
+| **FRED API**      | Macroeconomic data (NFP, CPI, yield curves) | Primary  |
+| **yfinance**      | Equity & ETF prices (SPX, TLT, GLD, VIX)    | Primary  |
+| **Alpha Vantage** | Intraday data, supplementary                | Fallback |
 
 The data pipeline implements automatic fallback: FRED → yfinance → Alpha Vantage → cached data (≤7 days old).
 
@@ -354,25 +354,25 @@ The data pipeline implements automatic fallback: FRED → yfinance → Alpha Van
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Regime Classification Accuracy | ≥80% vs manual labels |
-| Transition Detection Lead Time | 1–4 weeks via Disagreement Index |
-| Signal Improvement | ≥15% higher Sharpe vs static models |
-| False Positive Rate | ≤20% uncertainty alerts in stable periods |
+| Metric                         | Target                                    |
+| ------------------------------ | ----------------------------------------- |
+| Regime Classification Accuracy | ≥80% vs manual labels                     |
+| Transition Detection Lead Time | 1–4 weeks via Disagreement Index          |
+| Signal Improvement             | ≥15% higher Sharpe vs static models       |
+| False Positive Rate            | ≤20% uncertainty alerts in stable periods |
 
 ---
 
 ## Project Roadmap
 
-| Phase | Status | Key Deliverable |
-|-------|--------|----------------|
-| **Phase 0:** Foundation | ✅ Complete | 21,800 LOC, 588 tests, 22 endpoints, 18 charts, Docker deployment |
-| **Phase 1:** Hardening (Wk 1–6) | 🔜 Next | Zero stubs, real data everywhere, recalibration engine |
-| **Phase 2:** Intelligence (Wk 7–14) | 📋 Planned | Transition prediction, contagion network, narrative generation |
-| **Phase 3:** Prediction (Wk 15–24) | 📋 Planned | Return forecasting, tail risk attribution, portfolio optimizer |
-| **Phase 4:** Real-Time (Wk 25–36) | 📋 Planned | WebSocket, alerts, paper trading, Python SDK |
-| **Phase 5:** Network Effects (Wk 37–52) | 📋 Planned | Institutional memory, multi-user, alternative data |
+| Phase                                   | Status      | Key Deliverable                                                   |
+| --------------------------------------- | ----------- | ----------------------------------------------------------------- |
+| **Phase 0:** Foundation                 | ✅ Complete | 21,800 LOC, 588 tests, 22 endpoints, 18 charts, Docker deployment |
+| **Phase 1:** Hardening (Wk 1–6)         | 🔜 Next     | Zero stubs, real data everywhere, recalibration engine            |
+| **Phase 2:** Intelligence (Wk 7–14)     | 📋 Planned  | Transition prediction, contagion network, narrative generation    |
+| **Phase 3:** Prediction (Wk 15–24)      | 📋 Planned  | Return forecasting, tail risk attribution, portfolio optimizer    |
+| **Phase 4:** Real-Time (Wk 25–36)       | 📋 Planned  | WebSocket, alerts, paper trading, Python SDK                      |
+| **Phase 5:** Network Effects (Wk 37–52) | 📋 Planned  | Institutional memory, multi-user, alternative data                |
 
 See [AMCRAIS_PRD.md](AMCRAIS_PRD.md) for the full product requirements and detailed roadmap.
 

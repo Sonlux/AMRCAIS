@@ -10,7 +10,11 @@ import type { BacktestRequest, BacktestResultResponse } from "@/lib/types";
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
 import DataTable from "@/components/ui/DataTable";
-import { EquityCurveChart, RegimeReturnsChart, DrawdownChart } from "@/components/charts";
+import {
+  EquityCurveChart,
+  RegimeReturnsChart,
+  DrawdownChart,
+} from "@/components/charts";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RegimeReturnEntry, TradeLogEntry } from "@/lib/types";
 
@@ -105,7 +109,10 @@ const tradeLogColumns: ColumnDef<TradeLogEntry, unknown>[] = [
     header: "Portfolio Value",
     cell: ({ getValue }) => (
       <span className="font-mono">
-        ${(getValue() as number).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        $
+        {(getValue() as number).toLocaleString(undefined, {
+          maximumFractionDigits: 0,
+        })}
       </span>
     ),
   },
@@ -318,10 +325,7 @@ export default function BacktestPage() {
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
                 Trade Log ({result.trade_log.length} events)
               </p>
-              <DataTable
-                columns={tradeLogColumns}
-                data={result.trade_log}
-              />
+              <DataTable columns={tradeLogColumns} data={result.trade_log} />
             </div>
           )}
         </>
