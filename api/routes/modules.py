@@ -164,9 +164,8 @@ async def get_module_signal_history(
 ):
     """Return signal history for a module.
 
-    Note: Full per-module signal history requires persistent storage that
-    is not yet implemented.  For now this returns an empty list — the
-    frontend should show a placeholder.
+    Retrieves persisted module signals from the database. Each analysis
+    run persists signals, so history grows over time.
     """
     if name not in VALID_MODULES:
         raise HTTPException(
@@ -174,8 +173,46 @@ async def get_module_signal_history(
             detail=f"Unknown module '{name}'. Valid: {sorted(VALID_MODULES)}",
         )
 
-    # TODO: Persist module signals per analysis run so we can return history.
-    return SignalHistoryResponse(module=name, history=[])
+    system = get_system()
+
+    history: list[SignalHistoryPoint] = []
+
+    # Load from database if pipeline and storage are available
+    if system.pipeline and hasattr(system.pipeline, "storage"):
+        try:
+            df = system.pipeline.storage.load_module_signals(
+                module_name=name,
+                limit=500,
+            )
+            if not df.empty:
+                for idx, row in df.iterrows():
+                    # Convert index (datetime) to ISO string
+                    date_str = idx.isoformat() if hasattr(idx, "isoformat") else str(idx)
+                    
+                    # Safely extract regime_id (may be None or NaN)
+                    raw_regime = row.get("Regime_ID")
+                    regime_id = None
+                    if raw_regime is not None:
+                        try:
+                            import math
+                            if not math.isnan(float(raw_regime)):
+                                regime_id = int(raw_regime)
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    history.append(
+                        SignalHistoryPoint(
+                            date=date_str,
+                            signal=row.get("Signal", "neutral"),
+                            strength=float(row.get("Strength", 0.0)),
+                            confidence=float(row.get("Confidence", 0.5)),
+                            regime=regime_id,
+                        )
+                    )
+        except Exception as exc:
+            logger.warning(f"Failed to load signal history for {name}: {exc}")
+
+    return SignalHistoryResponse(module=name, history=history)
 
 
 # ─── Yield Curve Surface ─────────────────────────────────────────

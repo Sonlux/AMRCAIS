@@ -246,12 +246,50 @@ class AMRCAIS:
             # Get module analysis
             try:
                 module_result = module.analyze(data)
+                signal_obj = module_result.get("signal", {})
+                signal_dict = (
+                    signal_obj.to_dict()
+                    if hasattr(signal_obj, "to_dict")
+                    else {"signal": str(signal_obj)} if signal_obj else {"signal": "neutral"}
+                )
                 module_signals[name] = {
-                    "signal": module_result.get("signal", {}).to_dict() 
-                             if hasattr(module_result.get("signal", {}), "to_dict") 
-                             else str(module_result.get("signal", "neutral")),
+                    "signal": signal_dict,
                     "details": {k: v for k, v in module_result.items() if k != "signal"},
                 }
+                
+                # Persist signal to database for history tracking
+                if self.pipeline and hasattr(self.pipeline, "storage"):
+                    try:
+                        import json
+                        # Extract key fields from signal_dict
+                        sig_str = signal_dict.get("signal", "neutral") if isinstance(signal_dict, dict) else "neutral"
+                        strength = float(signal_dict.get("strength", 0.0)) if isinstance(signal_dict, dict) else 0.0
+                        confidence = float(signal_dict.get("confidence", 0.5)) if isinstance(signal_dict, dict) else 0.5
+                        explanation = signal_dict.get("explanation", "") if isinstance(signal_dict, dict) else ""
+                        regime_context = signal_dict.get("regime_context", "") if isinstance(signal_dict, dict) else ""
+                        
+                        # Serialize non-signal details as metadata
+                        meta = {}
+                        for k, v in module_result.items():
+                            if k != "signal":
+                                try:
+                                    json.dumps(v)
+                                    meta[k] = v
+                                except (TypeError, ValueError):
+                                    meta[k] = str(v)
+                        
+                        self.pipeline.storage.save_module_signal(
+                            module_name=name,
+                            signal=sig_str,
+                            strength=strength,
+                            confidence=confidence,
+                            explanation=str(explanation)[:500],
+                            regime_context=str(regime_context)[:200],
+                            regime_id=regime_result.regime,
+                            metadata=meta if meta else None,
+                        )
+                    except Exception as persist_err:
+                        logger.debug(f"Signal persistence for {name} skipped: {persist_err}")
             except Exception as e:
                 logger.warning(f"Module {name} analysis failed: {e}")
                 module_signals[name] = {"error": str(e)}

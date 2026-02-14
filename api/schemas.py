@@ -136,7 +136,9 @@ class SignalHistoryPoint(BaseModel):
     date: str
     signal: str
     strength: float
-    regime: int
+    confidence: float = 0.5
+    regime: Optional[int] = None
+
 
 
 class SignalHistoryResponse(BaseModel):

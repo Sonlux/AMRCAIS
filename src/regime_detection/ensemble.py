@@ -464,7 +464,35 @@ class RegimeEnsemble(BaseClassifier):
         if self._consecutive_high_disagreement >= 10:
             return True, f"Persistent high disagreement: {self._consecutive_high_disagreement} periods"
         
-        # TODO: Implement accuracy tracking when labeled data available
+        # Accuracy tracking: use ensemble-agreement as a proxy for accuracy
+        # when labeled data is not available.  If any classifier agrees with
+        # the ensemble result less than 75% of the time over the last 14
+        # predictions, it is likely drifting and the ensemble should be
+        # recalibrated.
+        lookback = min(14, len(self._prediction_history))
+        if lookback >= 5:  # need ≥5 data points to be meaningful
+            recent = self._prediction_history[-lookback:]
+            for name in self.classifiers:
+                agreements = sum(
+                    1
+                    for r in recent
+                    if name in r.individual_predictions
+                    and r.individual_predictions[name] == r.regime
+                )
+                total = sum(
+                    1 for r in recent if name in r.individual_predictions
+                )
+                if total >= 5:
+                    agreement_rate = agreements / total
+                    # Track rolling accuracy for external consumers
+                    self._accuracy_history[name].append(agreement_rate)
+                    if agreement_rate < 0.75:
+                        return (
+                            True,
+                            f"Classifier '{name}' agreement rate "
+                            f"{agreement_rate:.0%} < 75% over last "
+                            f"{total} predictions",
+                        )
         
         return False, ""
     
