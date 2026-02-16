@@ -1,0 +1,17 @@
+C:\Users\laksh\AppData\Local\Programs\Python\Python311\Lib\site-packages\locust\__init__.py:16: MonkeyPatchWarning: Monkey-patching ssl after ssl has already been imported may lead to errors, including RecursionError on Python 3.6. It may also silently lead to incorrect behaviour on Python 3.7. Please monkey-patch earlier. See https://github.com/gevent/gevent/issues/1016. Modules that had direct imports (NOT patched): ['urllib3.util.ssl_ (C:\\Users\\laksh\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\urllib3\\util\\ssl_.py)', 'anyio.streams.tls (C:\\Users\\laksh\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\anyio\\streams\\tls.py)', 'urllib3.util (C:\\Users\\laksh\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\urllib3\\util\\__init__.py)']. 
+  monkey.patch_all()
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-7.4.4, pluggy-1.5.0 -- C:\Users\laksh\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+benchmark: 4.0.0 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+metadata: {'Python': '3.11.9', 'Platform': 'Windows-10-10.0.26200-SP0', 'Packages': {'pytest': '7.4.4', 'pluggy': '1.5.0'}, 'Plugins': {'anyio': '4.11.0', 'langsmith': '0.4.4', 'locust': '2.40.0', 'asyncio': '0.23.8', 'benchmark': '4.0.0', 'cov': '4.1.0', 'html': '3.2.0', 'metadata': '3.1.1', 'mock': '3.14.1', 'timeout': '2.4.0', 'xdist': '3.8.0'}}
+rootdir: D:\AMRCAIS
+plugins: anyio-4.11.0, langsmith-0.4.4, locust-2.40.0, asyncio-0.23.8, benchmark-4.0.0, cov-4.1.0, html-3.2.0, metadata-3.1.1, mock-3.14.1, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT
+timeout: 30.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 1 item
+
+tests/test_phase2_features.py::TestPhase2Endpoints::test_transition_forecast 
+EXITCODE=-1073741510

@@ -249,3 +249,47 @@ multi_timeframe:
 narrative:
   include_positioning: true
   max_length_chars: 3000
+
+# ==============================================================================
+# Phase 3: Prediction Engine Parameters
+# ==============================================================================
+
+# --- Regime-Conditional Return Forecasting ---
+return_forecaster:
+  factors:
+    - "momentum_20d"
+    - "realized_vol_20d"
+    - "equity_bond_corr_30d"
+  min_obs_per_regime: 30
+  risk_free_rate: 0.05
+  kelly_cap: 2.0 # Maximum Kelly fraction (safety cap)
+
+# --- Tail Risk Attribution ---
+tail_risk:
+  confidence_level: 0.99 # 99% VaR
+  min_obs_per_regime: 30
+  default_portfolio:
+    SPX: 0.60
+    TLT: 0.25
+    GLD: 0.15
+  blend_parametric_historical: 0.5 # Weight for parametric vs historical VaR
+
+# --- Regime-Aware Portfolio Optimizer ---
+portfolio_optimizer:
+  risk_free_rate: 0.05
+  min_weight: 0.0 # Long-only
+  max_weight: 0.60
+  transaction_cost_bps: 10
+  rebalance_threshold: 0.40
+  drawdown_limits:
+    1: 0.15 # Risk-On Growth
+    2: 0.08 # Risk-Off Crisis
+    3: 0.10 # Stagflation
+    4: 0.12 # Disinflationary Boom
+
+# --- Anomaly-Based Alpha Signals ---
+alpha_signals:
+  min_anomaly_strength: 0.15
+  max_signals: 5
+  decay_halflife: 10.0 # Days
+  vix_spike_threshold: 25 # VIX level to flag as anomaly

@@ -587,3 +587,145 @@ class NarrativeResponse(BaseModel):
     full_text: str
     timestamp: datetime = Field(default_factory=datetime.now)
     data_sources: Dict[str, str] = Field(default_factory=dict)
+
+
+# ─── Phase 3: Return Forecast Schemas ─────────────────────────────
+
+
+class FactorContributionResponse(BaseModel):
+    """Per-factor contribution to expected return."""
+
+    factor: str
+    contribution: float
+
+
+class ReturnForecastResponse(BaseModel):
+    """Regime-conditional return forecast for one asset."""
+
+    asset: str
+    regime: int
+    expected_return: float
+    volatility: float
+    r_squared_regime: float = 0.0
+    r_squared_static: float = 0.0
+    r_squared_improvement: float = 0.0
+    kelly_fraction: float = 0.0
+    factor_contributions: Dict[str, float] = Field(default_factory=dict)
+    confidence: float = 0.5
+
+
+class ReturnForecastsResponse(BaseModel):
+    """Return forecasts for all assets."""
+
+    current_regime: int
+    regime_name: str = ""
+    forecasts: List[ReturnForecastResponse] = Field(default_factory=list)
+
+
+class RegimeCoefficientsResponse(BaseModel):
+    """Fitted coefficients for all regimes for a single asset."""
+
+    asset: str
+    regimes: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Regime ID → {alpha, betas, residual_vol, r_squared, n_obs}",
+    )
+
+
+# ─── Phase 3: Tail Risk Schemas ──────────────────────────────────
+
+
+class ScenarioVaRResponse(BaseModel):
+    """VaR/CVaR for a single regime-transition scenario."""
+
+    from_regime: int
+    to_regime: int
+    to_regime_name: str
+    probability: float
+    var_99: float
+    cvar_99: float
+    contribution: float
+    risk_drivers: Dict[str, float] = Field(default_factory=dict)
+
+
+class HedgeRecommendationResponse(BaseModel):
+    """Single hedging recommendation."""
+
+    scenario: str
+    instrument: str
+    rationale: str
+    urgency: str = "medium"
+
+
+class TailRiskResponse(BaseModel):
+    """Full tail risk analysis."""
+
+    current_regime: int
+    weighted_var: float
+    weighted_cvar: float
+    scenarios: List[ScenarioVaRResponse] = Field(default_factory=list)
+    worst_scenario: str = ""
+    worst_scenario_var: float = 0.0
+    tail_risk_driver: str = ""
+    hedge_recommendations: List[HedgeRecommendationResponse] = Field(
+        default_factory=list
+    )
+    portfolio_weights: Dict[str, float] = Field(default_factory=dict)
+
+
+# ─── Phase 3: Portfolio Optimizer Schemas ─────────────────────────
+
+
+class RegimeAllocationResponse(BaseModel):
+    """Optimal allocation for a single regime scenario."""
+
+    regime: int
+    regime_name: str
+    weights: Dict[str, float] = Field(default_factory=dict)
+    expected_return: float = 0.0
+    expected_volatility: float = 0.0
+    sharpe_ratio: float = 0.0
+
+
+class PortfolioOptimizationResponse(BaseModel):
+    """Full portfolio optimisation result."""
+
+    current_regime: int
+    blended_weights: Dict[str, float] = Field(default_factory=dict)
+    regime_allocations: List[RegimeAllocationResponse] = Field(
+        default_factory=list
+    )
+    rebalance_trigger: bool = False
+    rebalance_reason: str = ""
+    transaction_cost_estimate: float = 0.0
+    expected_return: float = 0.0
+    expected_volatility: float = 0.0
+    sharpe_ratio: float = 0.0
+    max_drawdown_constraint: float = 0.15
+
+
+# ─── Phase 3: Alpha Signal Schemas ───────────────────────────────
+
+
+class AlphaSignalResponse(BaseModel):
+    """Single tradeable alpha signal."""
+
+    anomaly_type: str
+    direction: str
+    rationale: str
+    strength: float = 0.0
+    confidence: float = 0.5
+    holding_period_days: int = 10
+    historical_win_rate: float = 0.5
+    regime: int = 1
+
+
+class AlphaSignalsResponse(BaseModel):
+    """All alpha signals from anomaly analysis."""
+
+    signals: List[AlphaSignalResponse] = Field(default_factory=list)
+    composite_score: float = 0.0
+    top_signal: Optional[str] = None
+    regime: int = 1
+    n_active_anomalies: int = 0
+    regime_context: str = ""

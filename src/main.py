@@ -34,6 +34,10 @@ from src.regime_detection.transition_model import RegimeTransitionModel
 from src.regime_detection.multi_timeframe import MultiTimeframeDetector
 from src.narrative.narrative_generator import NarrativeGenerator
 from src.meta_learning import MetaLearner
+from src.prediction.return_forecaster import ReturnForecaster
+from src.prediction.tail_risk import TailRiskAnalyzer
+from src.prediction.portfolio_optimizer import PortfolioOptimizer
+from src.prediction.alpha_signals import AlphaSignalGenerator
 
 # Load environment variables
 load_dotenv()
@@ -100,6 +104,12 @@ class AMRCAIS:
         self.transition_model: Optional[RegimeTransitionModel] = None
         self.multi_timeframe: Optional[MultiTimeframeDetector] = None
         self.narrative_generator: Optional[NarrativeGenerator] = None
+        
+        # Phase 3 components (Prediction Engine)
+        self.return_forecaster: Optional[ReturnForecaster] = None
+        self.tail_risk: Optional[TailRiskAnalyzer] = None
+        self.portfolio_optimizer: Optional[PortfolioOptimizer] = None
+        self.alpha_signals: Optional[AlphaSignalGenerator] = None
         
         logger.info("AMRCAIS instance created")
     
@@ -178,6 +188,34 @@ class AMRCAIS:
         storage_path = Path(self.db_path).parent / "regime_history.csv"
         self.meta_learner = MetaLearner(storage_path=storage_path)
         logger.info("Meta-learning layer initialized")
+        
+        # Initialize Phase 3: Prediction Engine
+        self.return_forecaster = ReturnForecaster()
+        self.tail_risk = TailRiskAnalyzer()
+        self.portfolio_optimizer = PortfolioOptimizer()
+        self.alpha_signals = AlphaSignalGenerator()
+        
+        # Fit Phase 3 components if enough data and ensemble fitted
+        if self.ensemble and self.ensemble.is_fitted and len(self.market_data) > 100:
+            try:
+                from src.regime_detection.ensemble import EnsembleResult
+                # Build regime series for prediction engine
+                if not hasattr(self, '_regime_series') or self._regime_series is None:
+                    predictions = self.ensemble.predict_sequence(
+                        self.market_data, window=60, step=1
+                    )
+                    self._regime_series = pd.Series(
+                        [r.regime for r in predictions],
+                        index=self.market_data.index[60:],
+                    )
+                
+                self.return_forecaster.fit(self.market_data, self._regime_series)
+                self.tail_risk.fit(self.market_data, self._regime_series)
+                self.portfolio_optimizer.fit(self.market_data, self._regime_series)
+                self.alpha_signals.fit(self.market_data, self._regime_series)
+                logger.info("Phase 3 Prediction Engine fitted")
+            except Exception as e:
+                logger.warning(f"Phase 3 fitting failed: {e}")
         
         self._is_initialized = True
         logger.info("AMRCAIS initialization complete with adaptive learning enabled")
@@ -369,6 +407,89 @@ class AMRCAIS:
             except Exception as e:
                 logger.warning(f"Narrative generation failed: {e}")
                 results["narrative"] = {"error": str(e)}
+        
+        # Phase 3: Prediction Engine
+        # Return forecasts
+        if self.return_forecaster and self.return_forecaster.is_fitted:
+            try:
+                forecasts = self.return_forecaster.predict_all(
+                    current_regime=regime_result.regime
+                )
+                results["return_forecasts"] = {
+                    asset: fc.to_dict() for asset, fc in forecasts.items()
+                }
+            except Exception as e:
+                logger.warning(f"Return forecast failed: {e}")
+                results["return_forecasts"] = {"error": str(e)}
+        
+        # Tail risk analysis
+        if self.tail_risk and self.tail_risk.is_fitted:
+            try:
+                # Default portfolio weights
+                default_weights = {"SPX": 0.60, "TLT": 0.25, "GLD": 0.15}
+                # Get transition probs from transition model if available
+                trans_probs = None
+                if "transition_forecast" in results and isinstance(
+                    results["transition_forecast"], dict
+                ):
+                    bp = results["transition_forecast"].get("blended_probs")
+                    if bp:
+                        trans_probs = {int(k): float(v) for k, v in bp.items()}
+                
+                tail = self.tail_risk.analyze(
+                    portfolio_weights=default_weights,
+                    current_regime=regime_result.regime,
+                    transition_probs=trans_probs,
+                )
+                results["tail_risk"] = tail.to_dict()
+            except Exception as e:
+                logger.warning(f"Tail risk analysis failed: {e}")
+                results["tail_risk"] = {"error": str(e)}
+        
+        # Portfolio optimisation
+        if self.portfolio_optimizer and self.portfolio_optimizer.is_fitted:
+            try:
+                trans_probs = None
+                if "transition_forecast" in results and isinstance(
+                    results["transition_forecast"], dict
+                ):
+                    bp = results["transition_forecast"].get("blended_probs")
+                    if bp:
+                        trans_probs = {int(k): float(v) for k, v in bp.items()}
+                
+                opt = self.portfolio_optimizer.optimize(
+                    current_regime=regime_result.regime,
+                    transition_probs=trans_probs,
+                )
+                results["portfolio_optimization"] = opt.to_dict()
+            except Exception as e:
+                logger.warning(f"Portfolio optimization failed: {e}")
+                results["portfolio_optimization"] = {"error": str(e)}
+        
+        # Alpha signals
+        if self.alpha_signals and self.alpha_signals.is_fitted:
+            try:
+                # Gather anomalies from correlation module
+                corr_details = results.get("modules", {}).get(
+                    "correlations", {}
+                ).get("details", {})
+                anomalies = corr_details.get(
+                    "anomalies", corr_details.get("z_scores", {})
+                )
+                active = {}
+                if isinstance(anomalies, dict):
+                    for pair, val in anomalies.items():
+                        if isinstance(val, (int, float)) and abs(val) > 0.1:
+                            active[pair] = float(val)
+                
+                alpha = self.alpha_signals.generate(
+                    current_regime=regime_result.regime,
+                    active_anomalies=active,
+                )
+                results["alpha_signals"] = alpha.to_dict()
+            except Exception as e:
+                logger.warning(f"Alpha signal generation failed: {e}")
+                results["alpha_signals"] = {"error": str(e)}
         
         return results
     
