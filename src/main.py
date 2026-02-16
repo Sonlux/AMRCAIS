@@ -111,6 +111,13 @@ class AMRCAIS:
         self.portfolio_optimizer: Optional[PortfolioOptimizer] = None
         self.alpha_signals: Optional[AlphaSignalGenerator] = None
         
+        # Phase 4 components (Real-Time + Execution)
+        self.event_bus: Optional['EventBus'] = None
+        self.scheduler: Optional['AnalysisScheduler'] = None
+        self.alert_engine: Optional['AlertEngine'] = None
+        self.stream_manager: Optional['StreamManager'] = None
+        self.paper_trading: Optional['PaperTradingEngine'] = None
+        
         logger.info("AMRCAIS instance created")
     
     def initialize(self, lookback_days: int = 365) -> None:
@@ -217,6 +224,25 @@ class AMRCAIS:
             except Exception as e:
                 logger.warning(f"Phase 3 fitting failed: {e}")
         
+        # Initialize Phase 4: Real-Time + Execution
+        try:
+            from src.realtime.event_bus import EventBus
+            from src.realtime.alert_engine import AlertEngine
+            from src.realtime.stream_manager import StreamManager
+            from src.realtime.paper_trading import PaperTradingEngine
+
+            self.event_bus = EventBus()
+            self.alert_engine = AlertEngine(self.event_bus)
+            self.alert_engine.start()
+            self.stream_manager = StreamManager(self.event_bus)
+            self.stream_manager.start()
+            self.paper_trading = PaperTradingEngine(
+                self.event_bus, initial_capital=100_000.0
+            )
+            logger.info("Phase 4 Real-Time components initialized")
+        except Exception as e:
+            logger.warning(f"Phase 4 initialization failed: {e}")
+
         self._is_initialized = True
         logger.info("AMRCAIS initialization complete with adaptive learning enabled")
     

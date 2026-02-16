@@ -729,3 +729,194 @@ class AlphaSignalsResponse(BaseModel):
     regime: int = 1
     n_active_anomalies: int = 0
     regime_context: str = ""
+
+
+# ─── Phase 4: Real-Time & Execution Schemas ──────────────────────
+
+
+class AlertResponse(BaseModel):
+    """Single alert record."""
+
+    alert_id: str
+    alert_type: str
+    severity: str
+    title: str
+    message: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: float
+    source_event_id: str = ""
+    acknowledged: bool = False
+
+
+class AlertsResponse(BaseModel):
+    """List of alerts."""
+
+    alerts: List[AlertResponse] = Field(default_factory=list)
+    total: int = 0
+    unacknowledged: int = 0
+
+
+class AlertConfigItem(BaseModel):
+    """Configuration for a single alert type."""
+
+    enabled: bool = True
+    cooldown_seconds: float = 300.0
+    threshold: float = 0.0
+
+
+class AlertConfigRequest(BaseModel):
+    """Request to update alert configuration."""
+
+    alert_type: str = Field(..., description="Alert type to configure")
+    enabled: Optional[bool] = None
+    cooldown_seconds: Optional[float] = None
+    threshold: Optional[float] = None
+
+
+class AlertConfigResponse(BaseModel):
+    """Current alert configuration."""
+
+    configs: Dict[str, AlertConfigItem] = Field(default_factory=dict)
+
+
+class EventResponse(BaseModel):
+    """Single event from the event bus."""
+
+    event_type: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: str
+    event_id: str
+    source: str = ""
+
+
+class EventsResponse(BaseModel):
+    """Event bus history."""
+
+    events: List[EventResponse] = Field(default_factory=list)
+    total: int = 0
+
+
+class PaperOrderResponse(BaseModel):
+    """Single paper trade order."""
+
+    order_id: str
+    asset: str
+    side: str
+    quantity: float
+    price: float
+    status: str
+    regime: Optional[int] = None
+    timestamp: float
+    fill_timestamp: Optional[float] = None
+    reason: str = ""
+    notional: float = 0.0
+
+
+class PositionResponse(BaseModel):
+    """Single portfolio position."""
+
+    asset: str
+    quantity: float
+    avg_cost: float
+    current_price: float
+    market_value: float
+    cost_basis: float
+    unrealized_pnl: float
+    unrealized_pnl_pct: float
+
+
+class PortfolioSummaryResponse(BaseModel):
+    """Paper trading portfolio snapshot."""
+
+    total_equity: float
+    cash: float
+    positions_value: float
+    num_positions: int
+    positions: List[PositionResponse] = Field(default_factory=list)
+    total_return_pct: float = 0.0
+    rebalance_count: int = 0
+    last_rebalance: Optional[float] = None
+    current_regime: Optional[int] = None
+
+
+class PerformanceMetricsResponse(BaseModel):
+    """Paper trading performance metrics."""
+
+    total_return: float = 0.0
+    total_return_pct: float = 0.0
+    sharpe_ratio: float = 0.0
+    max_drawdown: float = 0.0
+    max_drawdown_pct: float = 0.0
+    num_trades: int = 0
+    num_rebalances: int = 0
+    win_rate: float = 0.0
+    initial_capital: float = 100_000.0
+    current_equity: float = 100_000.0
+    cash: float = 100_000.0
+
+
+class RegimeAttributionResponse(BaseModel):
+    """P&L breakdown by market regime."""
+
+    regime_pnl: Dict[str, float] = Field(default_factory=dict)
+    total_realized: float = 0.0
+    unrealized: float = 0.0
+
+
+class RebalanceRequest(BaseModel):
+    """Request to trigger a portfolio rebalance."""
+
+    target_weights: Dict[str, float] = Field(
+        ..., description="Asset → target weight (0-1)"
+    )
+    prices: Dict[str, float] = Field(
+        ..., description="Asset → current price"
+    )
+    regime: Optional[int] = Field(None, description="Current regime ID")
+    reason: str = "manual_rebalance"
+
+
+class RebalanceResponse(BaseModel):
+    """Result of a portfolio rebalance."""
+
+    orders: List[PaperOrderResponse] = Field(default_factory=list)
+    total_equity: float
+    cash: float
+    num_orders: int = 0
+
+
+class EquityCurvePoint(BaseModel):
+    """Single equity curve data point."""
+
+    timestamp: float
+    equity: float
+    cash: float
+    positions_value: float
+    regime: Optional[int] = None
+
+
+class EquityCurveResponse(BaseModel):
+    """Paper trading equity curve."""
+
+    curve: List[EquityCurvePoint] = Field(default_factory=list)
+    total_points: int = 0
+
+
+class StreamStatusResponse(BaseModel):
+    """SSE stream manager status."""
+
+    is_running: bool = False
+    connected_clients: int = 0
+    total_connections: int = 0
+    total_events_broadcast: int = 0
+    clients: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class Phase4StatusResponse(BaseModel):
+    """Overall Phase 4 system status."""
+
+    event_bus: Dict[str, Any] = Field(default_factory=dict)
+    scheduler: Dict[str, Any] = Field(default_factory=dict)
+    alert_engine: Dict[str, Any] = Field(default_factory=dict)
+    stream_manager: Dict[str, Any] = Field(default_factory=dict)
+    paper_trading: Dict[str, Any] = Field(default_factory=dict)
