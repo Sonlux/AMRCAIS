@@ -16,7 +16,12 @@ const mockForecast = {
   horizon_days: 30,
   hmm_probs: { "1": 0.6, "2": 0.25, "3": 0.1, "4": 0.05 },
   indicator_probs: { "1": 0.55, "2": 0.3, "3": 0.1, "4": 0.05 },
-  blended_probs: { "Risk-On Growth": 0.6, "Risk-Off Crisis": 0.25, Stagflation: 0.1, "Disinflationary Boom": 0.05 },
+  blended_probs: {
+    "Risk-On Growth": 0.6,
+    "Risk-Off Crisis": 0.25,
+    Stagflation: 0.1,
+    "Disinflationary Boom": 0.05,
+  },
   leading_indicators: {},
   transition_risk: "medium",
   most_likely_next: 2,
@@ -143,9 +148,7 @@ describe("IntelligencePage", () => {
   it("renders transition probability chart", async () => {
     renderWithQuery(<IntelligencePage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/Transition Probabilities/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Transition Probabilities/i)).toBeInTheDocument();
     });
   });
 

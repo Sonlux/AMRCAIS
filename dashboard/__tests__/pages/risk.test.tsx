@@ -180,9 +180,7 @@ describe("RiskPage", () => {
     renderWithQuery(<RiskPage />);
     await waitFor(() => {
       expect(screen.getByText("Rebalance Triggered")).toBeInTheDocument();
-      expect(
-        screen.getByText(/Regime drift detected/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Regime drift detected/)).toBeInTheDocument();
     });
   });
 

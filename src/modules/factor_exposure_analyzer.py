@@ -2,8 +2,11 @@
 Factor Exposure Analyzer for AMRCAIS.
 
 Tracks exposure to systematic risk factors (momentum, value, quality, size)
-and interprets factor performance in regime context. Factor premia vary
-dramatically across regimes:
+and interprets factor performance in regime context.  Supports both
+generic factor columns and **Fama-French / AQR** academic factor models
+via multi-factor rolling OLS regression.
+
+Factor premia vary dramatically across regimes:
 
 - Risk-On Growth: Momentum and quality lead
 - Risk-Off Crisis: Quality and low-vol outperform, value and momentum suffer
@@ -14,9 +17,9 @@ Classes:
     FactorExposureAnalyzer: Regime-adaptive factor analysis
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 import pandas as pd
@@ -41,6 +44,26 @@ class FactorReturn:
     return_value: float
     z_score: float
     percentile: float
+
+
+@dataclass
+class OLSResult:
+    """Result of a (multi-factor) rolling OLS regression.
+
+    Attributes:
+        alpha: Intercept (annualised excess return not explained by factors).
+        betas: Dict mapping factor name → estimated loading / beta.
+        r_squared: R² of the regression.
+        t_stats: Dict mapping factor name → t-statistic for its beta.
+        residual_vol: Standard deviation of residuals (annualised).
+        n_obs: Number of observations in the rolling window.
+    """
+    alpha: float
+    betas: Dict[str, float]
+    r_squared: float
+    t_stats: Dict[str, float] = field(default_factory=dict)
+    residual_vol: float = 0.0
+    n_obs: int = 0
 
 
 class FactorExposureAnalyzer(AnalyticalModule):
@@ -95,6 +118,30 @@ class FactorExposureAnalyzer(AnalyticalModule):
     
     STANDARD_FACTORS = ["momentum", "value", "quality", "size", "volatility", "growth"]
     
+    # Fama-French 5 factor column names (as distributed by Ken French's library
+    # and commonly reproduced in data vendors).  The mapping lets us bridge
+    # between the academic column names and our internal generic names.
+    FAMA_FRENCH_COLUMNS = {
+        "Mkt-RF": "market",
+        "SMB": "size",
+        "HML": "value",
+        "RMW": "quality",    # profitability ≈ quality
+        "CMA": "growth",     # investment ≈ inverse growth
+        "Mom": "momentum",   # Carhart momentum (separate file)
+        "UMD": "momentum",   # alternative momentum label
+        "RF": "_rf",          # risk-free rate (kept for alpha calc)
+    }
+    
+    # AQR factor column aliases
+    AQR_COLUMNS = {
+        "MKT": "market",
+        "SMB": "size",
+        "HML_FF": "value",
+        "UMD": "momentum",
+        "BAB": "volatility",   # Betting-Against-Beta ~ low-vol
+        "QMJ": "quality",      # Quality Minus Junk
+    }
+    
     # Expected factor performance by regime
     FACTOR_EXPECTATIONS = {
         1: {  # Risk-On Growth
@@ -141,6 +188,7 @@ class FactorExposureAnalyzer(AnalyticalModule):
         self._historical_stats: Dict[str, Dict] = {}
         self._rolling_window: int = 60  # trading days for rolling OLS
         self._min_observations: int = 40
+        self._latest_multi_ols: Optional[OLSResult] = None
     
     def get_regime_parameters(self, regime: int) -> Dict:
         """Get factor expectations for a specific regime."""
@@ -151,48 +199,64 @@ class FactorExposureAnalyzer(AnalyticalModule):
     def analyze(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Analyze factor returns data using rolling OLS regression.
         
-        Uses rolling 60-day OLS where possible. Falls back to z-score
-        for factors without sufficient history for regression.
+        If Fama-French or AQR columns are detected (e.g. ``Mkt-RF``,
+        ``SMB``, ``HML``, ``RMW``, ``CMA``), a **multi-factor** rolling
+        OLS is run that jointly estimates all factor loadings and alpha.
+        Otherwise each factor is regressed individually (single-factor
+        OLS) or analysed via z-score.
         
         Args:
-            data: DataFrame with factor return columns and asset returns
+            data: DataFrame with factor return columns and asset returns.
             
         Returns:
-            Comprehensive factor analysis with OLS betas and rotations
+            Comprehensive factor analysis with OLS betas and rotations.
         """
-        signals = []
-        factor_results = {}
-        ols_betas = {}
-        
-        # Attempt rolling OLS if SPX returns available for dependent variable
-        has_spx = "SPX" in data.columns or "SPX_returns" in data.columns
-        spx_col = "SPX_returns" if "SPX_returns" in data.columns else "SPX" if "SPX" in data.columns else None
-        
+        signals: List[ModuleSignal] = []
+        factor_results: Dict[str, Any] = {}
+        ols_betas: Dict[str, float] = {}
+        multi_ols_result: Optional[OLSResult] = None
+
+        # ----- Detect & normalise Fama-French / AQR columns ---------------
+        mapped_data, ff_detected = self._normalise_factor_columns(data)
+
+        # ----- Path A: Multi-factor OLS (Fama-French / AQR) ---------------
+        dep_col = self._find_dependent_column(mapped_data)
+        if ff_detected and dep_col is not None:
+            multi_ols_result = self._run_multi_factor_ols(mapped_data, dep_col)
+            if multi_ols_result is not None:
+                self._latest_multi_ols = multi_ols_result
+                ols_betas = dict(multi_ols_result.betas)
+                logger.info(
+                    "Multi-factor OLS: alpha=%.4f R²=%.3f betas=%s",
+                    multi_ols_result.alpha, multi_ols_result.r_squared,
+                    {k: round(v, 3) for k, v in multi_ols_result.betas.items()},
+                )
+
+        # ----- Analyse each factor ----------------------------------------
+        analysis_data = mapped_data if ff_detected else data
         for factor in self.STANDARD_FACTORS:
-            if factor in data.columns:
-                returns = data[factor].dropna()
+            if factor in analysis_data.columns:
+                returns = analysis_data[factor].dropna()
                 if len(returns) == 0:
                     continue
                 
                 current_return = float(returns.iloc[-1])
                 z_score = 0.0
-                beta = None
-                
-                # Rolling OLS: regress SPX returns on factor returns to get beta
-                if has_spx and spx_col and len(returns) >= self._min_observations:
+                beta = ols_betas.get(factor)
+
+                # Single-factor OLS fallback
+                if beta is None and dep_col and len(returns) >= self._min_observations:
                     beta = self._compute_rolling_ols_beta(
-                        data, spx_col, factor
+                        analysis_data, dep_col, factor,
                     )
                     if beta is not None:
                         ols_betas[factor] = beta
                 
-                # Compute z-score using expanding window stats
+                # Z-score via expanding window
                 if len(returns) > 20:
                     mean = float(returns.iloc[:-1].mean())
                     std = float(returns.iloc[:-1].std())
                     z_score = (current_return - mean) / std if std > 0 else 0
-                    
-                    # Update historical stats
                     self._historical_stats[factor] = {
                         "mean": mean,
                         "std": std,
@@ -208,7 +272,7 @@ class FactorExposureAnalyzer(AnalyticalModule):
                 factor_results[factor] = result
                 signals.append(result["signal"])
         
-        # Detect factor rotation
+        # Factor rotation detection
         rotation = self.detect_factor_rotation()
         
         if signals:
@@ -218,7 +282,7 @@ class FactorExposureAnalyzer(AnalyticalModule):
             
             overall = "bullish" if bullish > bearish else "bearish" if bearish > bullish else "neutral"
             
-            return {
+            output: Dict[str, Any] = {
                 "signal": self.create_signal(
                     signal=overall,
                     strength=avg_strength,
@@ -230,6 +294,15 @@ class FactorExposureAnalyzer(AnalyticalModule):
                 "historical_stats": self._historical_stats,
                 "regime_parameters": self.get_current_parameters(),
             }
+            if multi_ols_result is not None:
+                output["multi_factor_ols"] = {
+                    "alpha": multi_ols_result.alpha,
+                    "r_squared": multi_ols_result.r_squared,
+                    "t_stats": multi_ols_result.t_stats,
+                    "residual_vol": multi_ols_result.residual_vol,
+                    "n_obs": multi_ols_result.n_obs,
+                }
+            return output
         
         return {
             "signal": self.create_signal(
@@ -238,6 +311,148 @@ class FactorExposureAnalyzer(AnalyticalModule):
                 explanation="No factor data available",
             ),
         }
+
+    # ---- Column normalisation --------------------------------------------
+
+    @staticmethod
+    def _find_dependent_column(data: pd.DataFrame) -> Optional[str]:
+        """Return the best dependent-variable column name, or *None*."""
+        for candidate in ("SPX_returns", "SPX", "Mkt-RF", "MKT", "portfolio"):
+            if candidate in data.columns:
+                return candidate
+        return None
+
+    def _normalise_factor_columns(
+        self, data: pd.DataFrame,
+    ) -> Tuple[pd.DataFrame, bool]:
+        """Detect Fama-French / AQR columns and map to generic names.
+
+        If both FF and AQR columns are present, the map with the most
+        matching columns is preferred.
+
+        Returns a (possibly augmented) copy of *data* and a boolean flag
+        indicating whether academic-format columns were detected.
+
+        Args:
+            data: Raw input DataFrame.
+
+        Returns:
+            Tuple of (normalised DataFrame, True if FF/AQR columns found).
+        """
+        ff_cols = set(self.FAMA_FRENCH_COLUMNS) & set(data.columns)
+        aqr_cols = set(self.AQR_COLUMNS) & set(data.columns)
+
+        mapping: Dict[str, str] = {}
+
+        # Prefer whichever map has more matching columns
+        if len(aqr_cols) > len(ff_cols) and len(aqr_cols) >= 2:
+            for col in aqr_cols:
+                target = self.AQR_COLUMNS[col]
+                if target not in data.columns:
+                    mapping[col] = target
+        elif len(ff_cols) >= 2:
+            for col in ff_cols:
+                target = self.FAMA_FRENCH_COLUMNS[col]
+                if target != "_rf" and target not in data.columns:
+                    mapping[col] = target
+        elif len(aqr_cols) >= 2:
+            for col in aqr_cols:
+                target = self.AQR_COLUMNS[col]
+                if target not in data.columns:
+                    mapping[col] = target
+
+        if not mapping:
+            return data, False
+
+        out = data.copy()
+        out.rename(columns=mapping, inplace=True)
+        logger.info("Normalised factor columns: %s", mapping)
+        return out, True
+
+    # ---- Multi-factor rolling OLS ----------------------------------------
+
+    # Factors to consider for multi-factor OLS (STANDARD + market)
+    _OLS_FACTORS = STANDARD_FACTORS + ["market"]
+
+    def _run_multi_factor_ols(
+        self,
+        data: pd.DataFrame,
+        dependent: str,
+    ) -> Optional[OLSResult]:
+        """Run multi-factor rolling OLS regression.
+
+        Regresses *dependent* (e.g. portfolio or SPX excess returns)
+        simultaneously on all available factor columns (including
+        ``market`` when available from Fama-French / AQR mapping) over
+        the trailing ``_rolling_window`` observations.
+
+        Model: ``R_dep = alpha + sum(beta_i * factor_i) + epsilon``
+
+        Args:
+            data: DataFrame with dependent and factor columns.
+            dependent: Name of the dependent variable column.
+
+        Returns:
+            :class:`OLSResult` with alpha, betas, R², t-stats,
+            or *None* if insufficient data.
+        """
+        available = [f for f in self._OLS_FACTORS if f in data.columns and f != dependent]
+        if not available or dependent not in data.columns:
+            return None
+
+        # Align & drop NAs
+        cols = [dependent] + available
+        aligned = data[cols].dropna()
+        if len(aligned) < self._min_observations:
+            return None
+
+        window = aligned.iloc[-self._rolling_window:]
+        y = window[dependent].values
+        X_raw = window[available].values
+        n, k = X_raw.shape
+
+        # Prepend intercept
+        X = np.column_stack([np.ones(n), X_raw])
+
+        try:
+            XtX = X.T @ X
+            Xty = X.T @ y
+            coeffs = np.linalg.solve(XtX, Xty)  # [alpha, beta1, …, betaK]
+        except np.linalg.LinAlgError:
+            return None
+
+        alpha = float(coeffs[0])
+        betas = {f: float(coeffs[i + 1]) for i, f in enumerate(available)}
+
+        # Residuals & R²
+        y_hat = X @ coeffs
+        residuals = y - y_hat
+        ss_res = float(np.sum(residuals ** 2))
+        ss_tot = float(np.sum((y - y.mean()) ** 2))
+        r_squared = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+        # Standard errors & t-stats
+        t_stats: Dict[str, float] = {}
+        residual_vol = 0.0
+        if n > k + 1:
+            mse = ss_res / (n - k - 1)
+            residual_vol = float(np.sqrt(mse) * np.sqrt(252))  # annualised
+            try:
+                cov_matrix = mse * np.linalg.inv(XtX)
+                se = np.sqrt(np.diag(cov_matrix))
+                for i, f in enumerate(available):
+                    t_stats[f] = float(coeffs[i + 1] / se[i + 1]) if se[i + 1] > 0 else 0.0
+            except np.linalg.LinAlgError:
+                pass
+
+        return OLSResult(
+            alpha=alpha,
+            betas=betas,
+            r_squared=r_squared,
+            t_stats=t_stats,
+            residual_vol=residual_vol,
+            n_obs=n,
+        )
     
     def _compute_rolling_ols_beta(
         self,

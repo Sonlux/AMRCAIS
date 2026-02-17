@@ -106,9 +106,7 @@ describe("ContagionPage", () => {
   it("renders active contagion flag messages", async () => {
     renderWithQuery(<ContagionPage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/High SPX→TLT spillover/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/High SPX→TLT spillover/)).toBeInTheDocument();
       expect(
         screen.getByText(/Granger link cluster detected/),
       ).toBeInTheDocument();
@@ -118,9 +116,7 @@ describe("ContagionPage", () => {
   it("renders Granger causality network chart", async () => {
     renderWithQuery(<ContagionPage />);
     await waitFor(() => {
-      expect(
-        screen.getByText("Granger Causality Network"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Granger Causality Network")).toBeInTheDocument();
     });
   });
 

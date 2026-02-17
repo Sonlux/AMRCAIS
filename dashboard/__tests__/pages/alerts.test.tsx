@@ -95,7 +95,9 @@ beforeEach(() => {
   vi.mocked(fetchEvents).mockResolvedValue(mockEvents);
   vi.mocked(fetchAlertConfig).mockResolvedValue(mockConfig);
   vi.mocked(fetchPhase4Status).mockResolvedValue(mockPhase4Status);
-  vi.mocked(acknowledgeAlert).mockResolvedValue({ status: "acknowledged" } as never);
+  vi.mocked(acknowledgeAlert).mockResolvedValue({
+    status: "acknowledged",
+  } as never);
 });
 
 // ── Tests ───────────────────────────────────────────────────────────
@@ -145,9 +147,7 @@ describe("AlertsPage", () => {
   it("renders unacknowledged only checkbox", async () => {
     renderWithQuery(<AlertsPage />);
     await waitFor(() => {
-      expect(
-        screen.getByLabelText("Unacknowledged only"),
-      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Unacknowledged only")).toBeInTheDocument();
     });
   });
 

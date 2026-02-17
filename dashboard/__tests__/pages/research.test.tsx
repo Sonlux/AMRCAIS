@@ -157,9 +157,7 @@ describe("ResearchPage", () => {
     const user = userEvent.setup();
     renderWithQuery(<ResearchPage />);
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Generate" }),
-      ).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
     });
     await user.click(screen.getByRole("button", { name: "Generate" }));
     await waitFor(() => {
@@ -171,9 +169,7 @@ describe("ResearchPage", () => {
     const user = userEvent.setup();
     renderWithQuery(<ResearchPage />);
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Generate" }),
-      ).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Generate" })).toBeEnabled();
     });
     await user.click(screen.getByRole("button", { name: "Generate" }));
     await waitFor(() => {
@@ -190,9 +186,7 @@ describe("ResearchPage", () => {
       expect(
         screen.getByText("Risk-On to Risk-Off Transition Analysis"),
       ).toBeInTheDocument();
-      expect(
-        screen.getByText("Momentum Factor Deep Dive"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Momentum Factor Deep Dive")).toBeInTheDocument();
     });
   });
 

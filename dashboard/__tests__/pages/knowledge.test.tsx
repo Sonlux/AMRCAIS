@@ -155,9 +155,7 @@ describe("KnowledgePage", () => {
   it("renders anomalies table section", async () => {
     renderWithQuery(<KnowledgePage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/Correlation Anomalies/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Correlation Anomalies/)).toBeInTheDocument();
     });
   });
 

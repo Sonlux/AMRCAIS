@@ -65,8 +65,20 @@ const mockEquity = {
 
 const mockAttribution = {
   attribution: [
-    { regime: 1, regime_name: "Risk-On Growth", pnl: 4000, pnl_pct: 0.04, days: 30 },
-    { regime: 2, regime_name: "Risk-Off Crisis", pnl: -1500, pnl_pct: -0.015, days: 10 },
+    {
+      regime: 1,
+      regime_name: "Risk-On Growth",
+      pnl: 4000,
+      pnl_pct: 0.04,
+      days: 30,
+    },
+    {
+      regime: 2,
+      regime_name: "Risk-Off Crisis",
+      pnl: -1500,
+      pnl_pct: -0.015,
+      days: 10,
+    },
   ],
   total_pnl: 2500,
 };

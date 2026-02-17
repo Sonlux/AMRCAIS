@@ -260,17 +260,17 @@ AMRCAIS/
 
 The FastAPI backend exposes **80 endpoints** across 9 route files:
 
-| Category          | Endpoints | Key Routes                                                        |
-| ----------------- | --------- | ----------------------------------------------------------------- |
-| **Regime**        | 5         | `/api/regime/current`, `/history`, `/ensemble`, `/disagreement`   |
-| **Modules**       | 5         | `/api/modules/macro`, `/yield-curve`, `/options`, `/factors`, `/all` |
-| **Data**          | 4         | `/api/data/assets`, `/macro/{indicator}`, `/status`               |
-| **Backtest**      | 3         | `/api/backtest/run`, `/results`                                   |
-| **Meta**          | 7         | `/api/meta/performance`, `/accuracy`, `/disagreement`, `/recalibration` |
-| **Phase 2**       | 8         | `/api/phase2/transition-forecast`, `/contagion/*`, `/narrative`, `/multi-timeframe`, `/surprise-decay/*` |
-| **Phase 3**       | 6         | `/api/phase3/return-forecast`, `/tail-risk`, `/portfolio-optimize`, `/alpha-signals` |
-| **Phase 4**       | 14        | `/api/phase4/events`, `/alerts/*`, `/stream`, `/portfolio/*`, `/trades`, `/rebalance` |
-| **Phase 5**       | 28        | `/api/phase5/knowledge/*`, `/research/*`, `/alt-data/*`, `/users/*`, `/annotations/*` |
+| Category     | Endpoints | Key Routes                                                                                               |
+| ------------ | --------- | -------------------------------------------------------------------------------------------------------- |
+| **Regime**   | 5         | `/api/regime/current`, `/history`, `/ensemble`, `/disagreement`                                          |
+| **Modules**  | 5         | `/api/modules/macro`, `/yield-curve`, `/options`, `/factors`, `/all`                                     |
+| **Data**     | 4         | `/api/data/assets`, `/macro/{indicator}`, `/status`                                                      |
+| **Backtest** | 3         | `/api/backtest/run`, `/results`                                                                          |
+| **Meta**     | 7         | `/api/meta/performance`, `/accuracy`, `/disagreement`, `/recalibration`                                  |
+| **Phase 2**  | 8         | `/api/phase2/transition-forecast`, `/contagion/*`, `/narrative`, `/multi-timeframe`, `/surprise-decay/*` |
+| **Phase 3**  | 6         | `/api/phase3/return-forecast`, `/tail-risk`, `/portfolio-optimize`, `/alpha-signals`                     |
+| **Phase 4**  | 14        | `/api/phase4/events`, `/alerts/*`, `/stream`, `/portfolio/*`, `/trades`, `/rebalance`                    |
+| **Phase 5**  | 28        | `/api/phase5/knowledge/*`, `/research/*`, `/alt-data/*`, `/users/*`, `/annotations/*`                    |
 
 Full interactive API docs available at `/docs` when the server is running.
 
@@ -280,22 +280,22 @@ Full interactive API docs available at `/docs` when the server is running.
 
 The Next.js dashboard provides **14 pages** with 18 chart components and 6 UI primitives:
 
-| Page              | Key Features                                                     |
-| ----------------- | ---------------------------------------------------------------- |
-| **Overview**      | Regime gauge, summary cards, disagreement index                  |
-| **Regime**        | Timeline, confidence, ensemble heatmap, distribution             |
-| **Modules**       | Signal cards per module, regime-adaptive interpretation           |
-| **Correlations**  | Correlation matrix, anomaly scatter, 3D vol surface              |
-| **Backtest**      | Equity curve, drawdown chart, trade log                          |
-| **Meta**          | Accuracy line chart, disagreement vs SPX, weight evolution       |
-| **Intelligence**  | Transition forecasts, multi-timeframe detection, NL narratives   |
-| **Contagion**     | Network density, Granger links, spillover matrix, net spillover  |
-| **Predictions**   | Return forecasts per asset, alpha signals, factor contributions  |
-| **Risk**          | Tail risk VaR/CVaR, stress scenarios, regime-conditional portfolios |
-| **Alerts**        | Alert management, severity filters, event log, config table      |
-| **Trading**       | Paper trading positions, equity curve, regime attribution        |
-| **Knowledge**     | Institutional memory, transitions, anomalies, pattern search     |
-| **Research**      | Research reports, case study generator, regime comparison        |
+| Page             | Key Features                                                        |
+| ---------------- | ------------------------------------------------------------------- |
+| **Overview**     | Regime gauge, summary cards, disagreement index                     |
+| **Regime**       | Timeline, confidence, ensemble heatmap, distribution                |
+| **Modules**      | Signal cards per module, regime-adaptive interpretation             |
+| **Correlations** | Correlation matrix, anomaly scatter, 3D vol surface                 |
+| **Backtest**     | Equity curve, drawdown chart, trade log                             |
+| **Meta**         | Accuracy line chart, disagreement vs SPX, weight evolution          |
+| **Intelligence** | Transition forecasts, multi-timeframe detection, NL narratives      |
+| **Contagion**    | Network density, Granger links, spillover matrix, net spillover     |
+| **Predictions**  | Return forecasts per asset, alpha signals, factor contributions     |
+| **Risk**         | Tail risk VaR/CVaR, stress scenarios, regime-conditional portfolios |
+| **Alerts**       | Alert management, severity filters, event log, config table         |
+| **Trading**      | Paper trading positions, equity curve, regime attribution           |
+| **Knowledge**    | Institutional memory, transitions, anomalies, pattern search        |
+| **Research**     | Research reports, case study generator, regime comparison           |
 
 Chart technologies: Plotly.js 3.3.1 (15 chart types incl. 3D surfaces), TradingView Lightweight Charts 5.1.0 (equity curves, regime timeline).
 
@@ -363,15 +363,15 @@ npx vitest
 
 ## Analytical Modules
 
-| Module                           | Purpose                             | Regime Adaptation                                    |
-| -------------------------------- | ----------------------------------- | ---------------------------------------------------- |
-| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC impact      | Different event weights per regime                   |
-| **Yield Curve Analyzer**         | Nelson-Siegel, DV01, curve shapes   | Steepening bullish in Growth, bearish in Stagflation |
-| **Options Surface Monitor**      | IV surfaces, skew analysis          | Adjusted skew thresholds per volatility regime       |
-| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors    | Factor recommendations rotate by regime              |
-| **Correlation Anomaly Detector** | Cross-asset correlation monitoring  | Regime-specific correlation baselines                |
-| **Contagion Network**            | Granger causality + spillover       | Regime-dependent transmission channels               |
-| **Macro Surprise Decay**         | Per-indicator exponential decay     | Decay rates adjust by regime volatility              |
+| Module                           | Purpose                            | Regime Adaptation                                    |
+| -------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC impact     | Different event weights per regime                   |
+| **Yield Curve Analyzer**         | Nelson-Siegel, DV01, curve shapes  | Steepening bullish in Growth, bearish in Stagflation |
+| **Options Surface Monitor**      | IV surfaces, skew analysis         | Adjusted skew thresholds per volatility regime       |
+| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors   | Factor recommendations rotate by regime              |
+| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific correlation baselines                |
+| **Contagion Network**            | Granger causality + spillover      | Regime-dependent transmission channels               |
+| **Macro Surprise Decay**         | Per-indicator exponential decay    | Decay rates adjust by regime volatility              |
 
 ---
 
@@ -400,14 +400,14 @@ The data pipeline implements automatic fallback: FRED → yfinance → Alpha Van
 
 ## Project Roadmap
 
-| Phase                                   | Status      | Key Deliverable                                                    |
-| --------------------------------------- | ----------- | ------------------------------------------------------------------ |
-| **Phase 0:** Foundation                 | ✅ Complete | Data pipeline, 4 classifiers, 5 modules, 24 endpoints, dashboard   |
-| **Phase 1:** Hardening                  | ⚠️ ~85%     | Recalibration engine, signal persistence, GARCH, Nelson-Siegel     |
-| **Phase 2:** Intelligence               | ✅ Complete | Transition model, contagion network, narrative, multi-timeframe     |
-| **Phase 3:** Prediction                 | ✅ Complete | Return forecasting, tail risk, portfolio optimizer, alpha signals   |
-| **Phase 4:** Real-Time + Execution      | ✅ Complete | EventBus, alerts, SSE streaming, paper trading                     |
-| **Phase 5:** Network Effects            | ✅ Complete | Knowledge base, research publisher, alt data, multi-user RBAC      |
+| Phase                              | Status      | Key Deliverable                                                   |
+| ---------------------------------- | ----------- | ----------------------------------------------------------------- |
+| **Phase 0:** Foundation            | ✅ Complete | Data pipeline, 4 classifiers, 5 modules, 24 endpoints, dashboard  |
+| **Phase 1:** Hardening             | ⚠️ ~85%     | Recalibration engine, signal persistence, GARCH, Nelson-Siegel    |
+| **Phase 2:** Intelligence          | ✅ Complete | Transition model, contagion network, narrative, multi-timeframe   |
+| **Phase 3:** Prediction            | ✅ Complete | Return forecasting, tail risk, portfolio optimizer, alpha signals |
+| **Phase 4:** Real-Time + Execution | ✅ Complete | EventBus, alerts, SSE streaming, paper trading                    |
+| **Phase 5:** Network Effects       | ✅ Complete | Knowledge base, research publisher, alt data, multi-user RBAC     |
 
 ### Remaining Work (Phase 1 Quality Upgrades)
 

@@ -129,9 +129,7 @@ describe("PredictionsPage", () => {
   it("renders return forecasts chart section", async () => {
     renderWithQuery(<PredictionsPage />);
     await waitFor(() => {
-      expect(
-        screen.getByText(/Expected Returns by Asset/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Expected Returns by Asset/)).toBeInTheDocument();
     });
   });
 
@@ -170,9 +168,7 @@ describe("PredictionsPage", () => {
     renderWithQuery(<PredictionsPage />);
     await waitFor(() => {
       expect(
-        screen.getByText(
-          "SPX momentum diverging from risk-off indicators",
-        ),
+        screen.getByText("SPX momentum diverging from risk-off indicators"),
       ).toBeInTheDocument();
     });
   });
