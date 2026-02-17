@@ -74,9 +74,7 @@ export default function RiskPage() {
               label="Expected Sharpe"
               value={portfolio ? num(portfolio.sharpe_ratio) : "—"}
               color={
-                portfolio && portfolio.sharpe_ratio >= 1
-                  ? "#22c55e"
-                  : "#f59e0b"
+                portfolio && portfolio.sharpe_ratio >= 1 ? "#22c55e" : "#f59e0b"
               }
             />
           </>
@@ -276,8 +274,7 @@ export default function RiskPage() {
                     <td
                       className="py-2 pr-4 font-mono"
                       style={{
-                        color:
-                          ra.expected_return >= 0 ? "#22c55e" : "#ef4444",
+                        color: ra.expected_return >= 0 ? "#22c55e" : "#ef4444",
                       }}
                     >
                       {pctRaw(ra.expected_return)}
@@ -290,9 +287,7 @@ export default function RiskPage() {
                         key={a}
                         className="py-2 pr-4 font-mono text-text-secondary"
                       >
-                        {ra.weights[a] != null
-                          ? pct(ra.weights[a])
-                          : "—"}
+                        {ra.weights[a] != null ? pct(ra.weights[a]) : "—"}
                       </td>
                     ))}
                   </tr>

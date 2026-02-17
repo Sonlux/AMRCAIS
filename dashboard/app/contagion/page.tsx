@@ -1,14 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  fetchContagionAnalysis,
-  fetchSpillover,
-} from "@/lib/api";
-import {
-  STALE_TIME,
-  REFETCH_INTERVAL,
-} from "@/lib/constants";
+import { fetchContagionAnalysis, fetchSpillover } from "@/lib/api";
+import { STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
 import { pct, num, cn } from "@/lib/utils";
 
 import MetricsCard from "@/components/ui/MetricsCard";
@@ -63,9 +57,7 @@ export default function ContagionPage() {
             />
             <MetricsCard
               label="Spillover Index"
-              value={
-                spillover ? num(spillover.total_spillover_index) : "—"
-              }
+              value={spillover ? num(spillover.total_spillover_index) : "—"}
               color={
                 spillover && spillover.total_spillover_index > 50
                   ? "#ef4444"
@@ -122,10 +114,12 @@ export default function ContagionPage() {
             <PlotlyChart
               height={350}
               data={(() => {
-                const assets = [...new Set([
-                  ...contagion.granger_network.map((l) => l.source),
-                  ...contagion.granger_network.map((l) => l.target),
-                ])];
+                const assets = [
+                  ...new Set([
+                    ...contagion.granger_network.map((l) => l.source),
+                    ...contagion.granger_network.map((l) => l.target),
+                  ]),
+                ];
                 const n = assets.length;
                 const angleStep = (2 * Math.PI) / n;
                 const pos: Record<string, { x: number; y: number }> = {};
@@ -245,8 +239,7 @@ export default function ContagionPage() {
                     v >= 0 ? "#ef4444" : "#3b82f6",
                   ),
                 },
-                hovertemplate:
-                  "%{x}<br>Net Spillover: %{y:.2f}<extra></extra>",
+                hovertemplate: "%{x}<br>Net Spillover: %{y:.2f}<extra></extra>",
               },
             ]}
             layout={{

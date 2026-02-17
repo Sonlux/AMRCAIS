@@ -8,17 +8,17 @@ import {
   fetchRegimeAttribution,
   fetchTrades,
 } from "@/lib/api";
-import {
-  REGIME_COLORS,
-  STALE_TIME,
-  REFETCH_INTERVAL,
-} from "@/lib/constants";
+import { REGIME_COLORS, STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
 import { pct, pctRaw, num, cn, currency } from "@/lib/utils";
 
 import MetricsCard from "@/components/ui/MetricsCard";
 import RegimeBadge from "@/components/ui/RegimeBadge";
 import ErrorState from "@/components/ui/ErrorState";
-import { CardSkeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
+import {
+  CardSkeleton,
+  ChartSkeleton,
+  TableSkeleton,
+} from "@/components/ui/Skeleton";
 import PlotlyChart from "@/components/charts/PlotlyChart";
 
 export default function TradingPage() {
@@ -64,9 +64,7 @@ export default function TradingPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-foreground">
-          Paper Trading
-        </h1>
+        <h1 className="text-xl font-semibold text-foreground">Paper Trading</h1>
         <p className="text-sm text-text-secondary">
           Live paper portfolio, performance metrics, regime attribution, and
           trade history
@@ -160,8 +158,7 @@ export default function TradingPage() {
                 line: { color: "#6366f1", width: 2 },
                 fill: "tozeroy" as const,
                 fillcolor: "rgba(99,102,241,0.08)",
-                hovertemplate:
-                  "%{x}<br>Equity: $%{y:,.0f}<extra></extra>",
+                hovertemplate: "%{x}<br>Equity: $%{y:,.0f}<extra></extra>",
               },
             ]}
             layout={{
@@ -325,8 +322,7 @@ export default function TradingPage() {
                             order.side === "buy"
                               ? "rgba(34,197,94,0.1)"
                               : "rgba(239,68,68,0.1)",
-                          color:
-                            order.side === "buy" ? "#22c55e" : "#ef4444",
+                          color: order.side === "buy" ? "#22c55e" : "#ef4444",
                         }}
                       >
                         {order.side}

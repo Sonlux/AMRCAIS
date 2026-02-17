@@ -7,9 +7,7 @@ import {
   fetchResearchReports,
   generateCaseStudy,
 } from "@/lib/api";
-import {
-  STALE_TIME,
-} from "@/lib/constants";
+import { STALE_TIME } from "@/lib/constants";
 
 import MetricsCard from "@/components/ui/MetricsCard";
 import ErrorState from "@/components/ui/ErrorState";
@@ -44,8 +42,12 @@ export default function ResearchPage() {
   const caseMutation = useMutation({
     mutationFn: () => generateCaseStudy(fromRegime, toRegime),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["phase5", "research-reports"] });
-      queryClient.invalidateQueries({ queryKey: ["phase5", "research-summary"] });
+      queryClient.invalidateQueries({
+        queryKey: ["phase5", "research-reports"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["phase5", "research-summary"],
+      });
     },
   });
 
@@ -69,10 +71,7 @@ export default function ResearchPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {summary ? (
           <>
-            <MetricsCard
-              label="Total Reports"
-              value={summary.total_reports}
-            />
+            <MetricsCard label="Total Reports" value={summary.total_reports} />
             <MetricsCard
               label="Report Types"
               value={
@@ -201,9 +200,7 @@ export default function ResearchPage() {
                 <div
                   className="flex cursor-pointer items-center justify-between"
                   onClick={() =>
-                    setExpandedReport(
-                      expandedReport === r.id ? null : r.id,
-                    )
+                    setExpandedReport(expandedReport === r.id ? null : r.id)
                   }
                 >
                   <div className="flex items-center gap-3">

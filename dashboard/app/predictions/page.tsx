@@ -1,10 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  fetchReturnForecasts,
-  fetchAlphaSignals,
-} from "@/lib/api";
+import { fetchReturnForecasts, fetchAlphaSignals } from "@/lib/api";
 import {
   REGIME_COLORS,
   REGIME_NAMES,

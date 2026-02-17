@@ -9,11 +9,7 @@ import {
   fetchDecayCurves,
   fetchNarrative,
 } from "@/lib/api";
-import {
-  REGIME_COLORS,
-  STALE_TIME,
-  REFETCH_INTERVAL,
-} from "@/lib/constants";
+import { REGIME_COLORS, STALE_TIME, REFETCH_INTERVAL } from "@/lib/constants";
 import { pct, num, cn } from "@/lib/utils";
 
 import MetricsCard from "@/components/ui/MetricsCard";
@@ -239,24 +235,26 @@ export default function IntelligencePage() {
         {decay && Object.keys(decay.curves).length > 0 ? (
           <PlotlyChart
             height={300}
-            data={Object.entries(decay.curves).map(([indicator, points], i) => ({
-              type: "scatter" as const,
-              mode: "lines" as const,
-              x: points.map((p) => p.day),
-              y: points.map((p) => p.impact),
-              name: indicator,
-              line: {
-                color: [
-                  "#6366f1",
-                  "#22c55e",
-                  "#ef4444",
-                  "#f59e0b",
-                  "#3b82f6",
-                  "#8b5cf6",
-                ][i % 6],
-              },
-              hovertemplate: `${indicator}<br>Day %{x}<br>Impact: %{y:.4f}<extra></extra>`,
-            }))}
+            data={Object.entries(decay.curves).map(
+              ([indicator, points], i) => ({
+                type: "scatter" as const,
+                mode: "lines" as const,
+                x: points.map((p) => p.day),
+                y: points.map((p) => p.impact),
+                name: indicator,
+                line: {
+                  color: [
+                    "#6366f1",
+                    "#22c55e",
+                    "#ef4444",
+                    "#f59e0b",
+                    "#3b82f6",
+                    "#8b5cf6",
+                  ][i % 6],
+                },
+                hovertemplate: `${indicator}<br>Day %{x}<br>Impact: %{y:.4f}<extra></extra>`,
+              }),
+            )}
             layout={{
               xaxis: { title: { text: "Days Forward", font: { size: 10 } } },
               yaxis: { title: { text: "Impact", font: { size: 10 } } },

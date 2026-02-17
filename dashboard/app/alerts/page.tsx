@@ -88,19 +88,13 @@ export default function AlertsPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {alerts ? (
           <>
-            <MetricsCard
-              label="Total Alerts"
-              value={alerts.total}
-            />
+            <MetricsCard label="Total Alerts" value={alerts.total} />
             <MetricsCard
               label="Unacknowledged"
               value={alerts.unacknowledged}
               color={alerts.unacknowledged > 0 ? "#ef4444" : "#22c55e"}
             />
-            <MetricsCard
-              label="Total Events"
-              value={events?.total ?? "—"}
-            />
+            <MetricsCard label="Total Events" value={events?.total ?? "—"} />
             <MetricsCard
               label="Alert Configs"
               value={config ? Object.keys(config.configs).length : "—"}

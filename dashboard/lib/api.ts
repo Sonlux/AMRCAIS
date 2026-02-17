@@ -433,8 +433,7 @@ export const generateCaseStudy = (fromRegime: number, toRegime: number) =>
 export const fetchUsersSummary = () =>
   get<UserManagerSummaryResponse>("/api/phase5/users/summary");
 
-export const fetchUsers = () =>
-  get<UserListResponse>("/api/phase5/users");
+export const fetchUsers = () => get<UserListResponse>("/api/phase5/users");
 
 export const fetchAnnotations = (limit = 50) =>
   get<AnnotationsResponse>(`/api/phase5/annotations?limit=${limit}`);

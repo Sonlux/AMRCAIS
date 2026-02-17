@@ -6,11 +6,7 @@ import {
   fetchTransitions,
   fetchAnomalies,
 } from "@/lib/api";
-import {
-  REGIME_COLORS,
-  REGIME_NAMES,
-  STALE_TIME,
-} from "@/lib/constants";
+import { REGIME_COLORS, REGIME_NAMES, STALE_TIME } from "@/lib/constants";
 import { pct, cn } from "@/lib/utils";
 
 import MetricsCard from "@/components/ui/MetricsCard";
@@ -87,37 +83,36 @@ export default function KnowledgePage() {
       </div>
 
       {/* Regime coverage chart */}
-      {summary &&
-        Object.keys(summary.regime_coverage).length > 0 && (
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
-              Knowledge Coverage by Regime
-            </p>
-            <PlotlyChart
-              height={250}
-              data={[
-                {
-                  type: "bar" as const,
-                  x: Object.keys(summary.regime_coverage).map(
-                    (k) => REGIME_NAMES[Number(k)] ?? k,
+      {summary && Object.keys(summary.regime_coverage).length > 0 && (
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
+            Knowledge Coverage by Regime
+          </p>
+          <PlotlyChart
+            height={250}
+            data={[
+              {
+                type: "bar" as const,
+                x: Object.keys(summary.regime_coverage).map(
+                  (k) => REGIME_NAMES[Number(k)] ?? k,
+                ),
+                y: Object.values(summary.regime_coverage),
+                marker: {
+                  color: Object.keys(summary.regime_coverage).map(
+                    (k) => REGIME_COLORS[Number(k)] ?? "#6b7280",
                   ),
-                  y: Object.values(summary.regime_coverage),
-                  marker: {
-                    color: Object.keys(summary.regime_coverage).map(
-                      (k) => REGIME_COLORS[Number(k)] ?? "#6b7280",
-                    ),
-                  },
-                  hovertemplate: "%{x}<br>Records: %{y}<extra></extra>",
                 },
-              ]}
-              layout={{
-                yaxis: {
-                  title: { text: "Records", font: { size: 10 } },
-                },
-              }}
-            />
-          </div>
-        )}
+                hovertemplate: "%{x}<br>Records: %{y}<extra></extra>",
+              },
+            ]}
+            layout={{
+              yaxis: {
+                title: { text: "Records", font: { size: 10 } },
+              },
+            }}
+          />
+        </div>
+      )}
 
       {/* Transition History + Anomalies */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -196,9 +191,7 @@ export default function KnowledgePage() {
                         className="py-1.5 pr-3 font-mono"
                         style={{
                           color:
-                            Math.abs(a.z_score) > 2
-                              ? "#ef4444"
-                              : "#f59e0b",
+                            Math.abs(a.z_score) > 2 ? "#ef4444" : "#f59e0b",
                         }}
                       >
                         {a.z_score.toFixed(2)}
