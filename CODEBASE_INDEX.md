@@ -586,9 +586,9 @@ dashboard/__tests__/
 
 ### Remaining TODOs (1)
 
-| #   | Location                      | Description                                   | Severity  |
-| --- | ----------------------------- | --------------------------------------------- | --------- |
-| 1   | `ensemble.py` L467            | Accuracy tracking when labeled data available | 🟢 Low    |
+| #   | Location           | Description                                   | Severity |
+| --- | ------------------ | --------------------------------------------- | -------- |
+| 1   | `ensemble.py` L467 | Accuracy tracking when labeled data available | 🟢 Low   |
 
 ---
 

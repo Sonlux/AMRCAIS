@@ -142,10 +142,25 @@ class AMRCAIS:
         start_date = end_date - timedelta(days=lookback_days)
         
         try:
-            self.market_data = self.pipeline.fetch_market_data(
+            raw_data = self.pipeline.fetch_market_data(
                 start_date=start_date,
                 end_date=end_date,
             )
+            # fetch_market_data returns Dict[str, DataFrame]; merge Close
+            # prices into a single DataFrame with one column per asset.
+            if isinstance(raw_data, dict) and raw_data:
+                close_frames = {}
+                for asset, df in raw_data.items():
+                    if isinstance(df, pd.DataFrame) and "Close" in df.columns:
+                        close_frames[asset] = df["Close"]
+                if close_frames:
+                    self.market_data = pd.DataFrame(close_frames).dropna()
+                else:
+                    self.market_data = pd.DataFrame()
+            elif isinstance(raw_data, pd.DataFrame):
+                self.market_data = raw_data
+            else:
+                self.market_data = pd.DataFrame()
             logger.info(f"Loaded market data: {self.market_data.shape}")
         except Exception as e:
             logger.warning(f"Could not fetch live data: {e}. Using cached if available.")

@@ -151,9 +151,19 @@ class AnalyticalModule(ABC):
     
     def _load_config(self, config_path: Optional[str]) -> Dict:
         """Load module configuration from YAML."""
-        if config_path and Path(config_path).exists():
-            with open(config_path, "r") as f:
-                return yaml.safe_load(f) or {}
+        if config_path:
+            p = Path(config_path)
+            # If a directory was passed, look for regimes.yaml inside it
+            if p.is_dir():
+                regimes_file = p / "regimes.yaml"
+                if regimes_file.is_file():
+                    with open(regimes_file, "r") as f:
+                        config = yaml.safe_load(f) or {}
+                        logger.debug(f"Loaded config from {regimes_file}")
+                        return config
+            elif p.is_file():
+                with open(p, "r") as f:
+                    return yaml.safe_load(f) or {}
         
         # Try default paths
         default_paths = [
@@ -163,7 +173,8 @@ class AnalyticalModule(ABC):
         ]
         
         for path in default_paths:
-            if Path(path).exists():
+            path = Path(path)
+            if path.is_file():
                 with open(path, "r") as f:
                     config = yaml.safe_load(f) or {}
                     logger.debug(f"Loaded config from {path}")

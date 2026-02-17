@@ -389,12 +389,14 @@ class YFinanceFetcher(BaseFetcher):
             if data.empty:
                 raise ValueError(f"No data returned for {symbol} ({ticker})")
             
-            # Standardize column names
-            data.columns = [col.title() if isinstance(col, str) else col for col in data.columns]
-            
-            # Handle MultiIndex columns from yfinance
+            # Handle MultiIndex columns from yfinance (v1.x returns MultiIndex
+            # even for single-ticker downloads)
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
+            
+            # Standardize column names to Title case
+            data.columns = [col.title() if isinstance(col, str) else str(col)
+                            for col in data.columns]
             
             data.index.name = "Date"
             
@@ -461,7 +463,12 @@ class YFinanceFetcher(BaseFetcher):
                     else:
                         df = data[ticker].copy()
                     
-                    df.columns = [col.title() if isinstance(col, str) else col for col in df.columns]
+                    # Flatten MultiIndex columns from yfinance v1.x
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.get_level_values(0)
+                    
+                    df.columns = [col.title() if isinstance(col, str) else str(col)
+                                  for col in df.columns]
                     df.index.name = "Date"
                     df = df.dropna(how="all")
                     results[symbol] = df
