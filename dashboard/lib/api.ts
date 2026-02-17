@@ -34,6 +34,44 @@ import type {
   WeightHistoryResponse,
   WeightsResponse,
   YieldCurveDataResponse,
+  // Phase 2
+  TransitionForecastResponse,
+  MultiTimeframeResponse,
+  ContagionAnalysisResponse,
+  SpilloverResponse,
+  SurpriseIndexResponse,
+  DecayCurveResponse,
+  DecaySurpriseResponse,
+  NarrativeResponse,
+  // Phase 3
+  ReturnForecastResponse,
+  ReturnForecastsResponse,
+  TailRiskResponse,
+  PortfolioOptimizationResponse,
+  AlphaSignalsResponse,
+  // Phase 4
+  Phase4StatusResponse,
+  EventsResponse,
+  AlertsResponse,
+  AlertConfigResponse,
+  PortfolioSummaryResponse,
+  PerformanceMetricsResponse,
+  EquityCurveResponseP4,
+  RegimeAttributionResponse,
+  PaperOrderResponse,
+  // Phase 5
+  Phase5StatusResponse,
+  KnowledgeSummaryResponse,
+  TransitionsResponse,
+  PatternSearchResponse,
+  AnomaliesResponse,
+  AnomalyStatsResponse,
+  ResearchPublisherSummaryResponse,
+  ReportListResponse,
+  ResearchReportResponse,
+  UserManagerSummaryResponse,
+  UserListResponse,
+  AnnotationsResponse,
 } from "./types";
 
 /* ─── CSRF Token Management ────────────────────────────────── */
@@ -251,3 +289,152 @@ export const fetchRecalibrations = () =>
   get<RecalibrationResponse>("/api/meta/recalibrations");
 
 export const fetchSystemHealth = () => get<HealthResponse>("/api/meta/health");
+
+/* ─── Phase 2: Intelligence Expansion ─────────────────────── */
+
+export const fetchTransitionForecast = (horizon = 30) =>
+  get<TransitionForecastResponse>(
+    `/api/phase2/transition-forecast?horizon=${horizon}`,
+  );
+
+export const fetchMultiTimeframe = () =>
+  get<MultiTimeframeResponse>("/api/phase2/multi-timeframe");
+
+export const fetchContagionAnalysis = () =>
+  get<ContagionAnalysisResponse>("/api/phase2/contagion/analyze");
+
+export const fetchSpillover = () =>
+  get<SpilloverResponse>("/api/phase2/contagion/spillover");
+
+export const fetchSurpriseIndex = () =>
+  get<SurpriseIndexResponse>("/api/phase2/surprise-decay/index");
+
+export const fetchDecayCurves = (daysForward = 30) =>
+  get<DecayCurveResponse>(
+    `/api/phase2/surprise-decay/curves?days_forward=${daysForward}`,
+  );
+
+export const fetchActiveSurprises = () =>
+  get<DecaySurpriseResponse[]>("/api/phase2/surprise-decay/active");
+
+export const fetchNarrative = () =>
+  get<NarrativeResponse>("/api/phase2/narrative");
+
+/* ─── Phase 3: Prediction Engine ──────────────────────────── */
+
+export const fetchReturnForecasts = () =>
+  get<ReturnForecastsResponse>("/api/phase3/return-forecast");
+
+export const fetchReturnForecast = (asset: string) =>
+  get<ReturnForecastResponse>(
+    `/api/phase3/return-forecast/${encodeURIComponent(sanitize(asset, 10))}`,
+  );
+
+export const fetchTailRisk = () =>
+  get<TailRiskResponse>("/api/phase3/tail-risk");
+
+export const fetchPortfolioOptimize = () =>
+  get<PortfolioOptimizationResponse>("/api/phase3/portfolio-optimize");
+
+export const fetchAlphaSignals = () =>
+  get<AlphaSignalsResponse>("/api/phase3/alpha-signals");
+
+/* ─── Phase 4: Real-Time + Execution ─────────────────────── */
+
+export const fetchPhase4Status = () =>
+  get<Phase4StatusResponse>("/api/phase4/status");
+
+export const fetchEvents = (limit = 50, eventType?: string) => {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (eventType) params.set("event_type", sanitize(eventType, 50));
+  return get<EventsResponse>(`/api/phase4/events?${params.toString()}`);
+};
+
+export const fetchAlerts = (
+  limit = 50,
+  severity?: string,
+  unacknowledgedOnly = false,
+) => {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (severity) params.set("severity", sanitize(severity, 20));
+  if (unacknowledgedOnly) params.set("unacknowledged_only", "true");
+  return get<AlertsResponse>(`/api/phase4/alerts?${params.toString()}`);
+};
+
+export const acknowledgeAlert = (alertId: string) =>
+  post<{ status: string; alert_id: string }>(
+    `/api/phase4/alerts/acknowledge?alert_id=${encodeURIComponent(sanitize(alertId, 100))}`,
+    {},
+  );
+
+export const fetchAlertConfig = () =>
+  get<AlertConfigResponse>("/api/phase4/alerts/config");
+
+export const fetchPortfolio = () =>
+  get<PortfolioSummaryResponse>("/api/phase4/portfolio");
+
+export const fetchPortfolioMetrics = () =>
+  get<PerformanceMetricsResponse>("/api/phase4/portfolio/metrics");
+
+export const fetchPortfolioEquity = (limit = 500) =>
+  get<EquityCurveResponseP4>(`/api/phase4/portfolio/equity?limit=${limit}`);
+
+export const fetchRegimeAttribution = () =>
+  get<RegimeAttributionResponse>("/api/phase4/portfolio/attribution");
+
+export const fetchTrades = (limit = 50, asset?: string) => {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (asset) params.set("asset", sanitize(asset, 10));
+  return get<{ orders: PaperOrderResponse[]; total: number }>(
+    `/api/phase4/trades?${params.toString()}`,
+  );
+};
+
+/* ─── Phase 5: Network Effects + Moat ────────────────────── */
+
+export const fetchPhase5Status = () =>
+  get<Phase5StatusResponse>("/api/phase5/status");
+
+export const fetchKnowledgeSummary = () =>
+  get<KnowledgeSummaryResponse>("/api/phase5/knowledge/summary");
+
+export const fetchTransitions = (limit = 50) =>
+  get<TransitionsResponse>(`/api/phase5/transitions?limit=${limit}`);
+
+export const searchPatterns = (indicators: Record<string, number>) =>
+  post<PatternSearchResponse>("/api/phase5/transitions/search", {
+    current_indicators: indicators,
+    top_k: 10,
+    min_similarity: 0.3,
+  });
+
+export const fetchAnomalies = (limit = 50) =>
+  get<AnomaliesResponse>(`/api/phase5/anomalies?limit=${limit}`);
+
+export const fetchAnomalyStats = () =>
+  get<AnomalyStatsResponse>("/api/phase5/anomalies/stats");
+
+export const fetchResearchSummary = () =>
+  get<ResearchPublisherSummaryResponse>("/api/phase5/research/summary");
+
+export const fetchResearchReports = (limit = 20) =>
+  get<ReportListResponse>(`/api/phase5/research/reports?limit=${limit}`);
+
+export const generateCaseStudy = (fromRegime: number, toRegime: number) =>
+  post<ResearchReportResponse>("/api/phase5/research/case-study", {
+    from_regime: fromRegime,
+    to_regime: toRegime,
+    limit: 10,
+  });
+
+export const fetchUsersSummary = () =>
+  get<UserManagerSummaryResponse>("/api/phase5/users/summary");
+
+export const fetchUsers = () =>
+  get<UserListResponse>("/api/phase5/users");
+
+export const fetchAnnotations = (limit = 50) =>
+  get<AnnotationsResponse>(`/api/phase5/annotations?limit=${limit}`);

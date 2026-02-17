@@ -9,6 +9,14 @@ import {
   ScatterChart,
   FlaskConical,
   Brain,
+  TrendingUp,
+  Network,
+  BarChart3,
+  Shield,
+  Bell,
+  Wallet,
+  BookOpen,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +27,18 @@ const NAV_ITEMS = [
   { href: "/correlations", icon: ScatterChart, label: "Correlations" },
   { href: "/backtest", icon: FlaskConical, label: "Backtest" },
   { href: "/meta", icon: Brain, label: "Meta" },
+  // Phase 2
+  { href: "/intelligence", icon: TrendingUp, label: "Intelligence" },
+  { href: "/contagion", icon: Network, label: "Contagion" },
+  // Phase 3
+  { href: "/predictions", icon: BarChart3, label: "Predictions" },
+  { href: "/risk", icon: Shield, label: "Risk" },
+  // Phase 4
+  { href: "/alerts", icon: Bell, label: "Alerts" },
+  { href: "/trading", icon: Wallet, label: "Trading" },
+  // Phase 5
+  { href: "/knowledge", icon: BookOpen, label: "Knowledge" },
+  { href: "/research", icon: FileText, label: "Research" },
 ] as const;
 
 export default function Sidebar() {
