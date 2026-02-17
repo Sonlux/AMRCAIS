@@ -562,9 +562,9 @@ class AlphaVantageFetcher(BaseFetcher):
         end = self._parse_date(end_date)
         
         params = {
-            "function": "TIME_SERIES_DAILY_ADJUSTED",
+            "function": "TIME_SERIES_DAILY",
             "symbol": av_symbol,
-            "outputsize": "full",
+            "outputsize": "compact",  # Free tier; returns last 100 trading days
             "apikey": self.api_key,
         }
         
@@ -576,10 +576,20 @@ class AlphaVantageFetcher(BaseFetcher):
             if "Error Message" in data:
                 raise ValueError(f"Alpha Vantage error: {data['Error Message']}")
             
-            if "Time Series (Daily)" not in data:
+            if "Information" in data:
+                raise ValueError(f"Alpha Vantage: {data['Information']}")
+            
+            # Accept both "Time Series (Daily)" (free) and adjusted variants
+            ts_key = None
+            for key in data:
+                if "Time Series" in key:
+                    ts_key = key
+                    break
+            
+            if ts_key is None:
                 raise ValueError(f"Unexpected response format for {symbol}")
             
-            ts = data["Time Series (Daily)"]
+            ts = data[ts_key]
             
             df = pd.DataFrame.from_dict(ts, orient="index")
             df.index = pd.to_datetime(df.index)
