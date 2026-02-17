@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCurrentRegime } from "@/lib/api";
@@ -18,6 +19,15 @@ const BREADCRUMB_MAP: Record<string, string> = {
 export default function Topbar() {
   const pathname = usePathname();
   const pageTitle = BREADCRUMB_MAP[pathname] ?? "AMRCAIS";
+
+  // Render time only on the client to avoid SSR hydration mismatch
+  const [time, setTime] = useState<string>("");
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleTimeString());
+    tick();
+    const id = setInterval(tick, 1_000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data: regime } = useQuery({
     queryKey: ["regime", "current"],
@@ -59,7 +69,7 @@ export default function Topbar() {
         )}
 
         <span className="text-xs text-text-muted">
-          {new Date().toLocaleTimeString()}
+          {time}
         </span>
       </div>
     </header>

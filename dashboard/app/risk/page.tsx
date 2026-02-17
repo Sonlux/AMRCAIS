@@ -324,7 +324,7 @@ export default function RiskPage() {
                 </span>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {h.hedge_type.replace(/_/g, " ")} — {h.instrument}
+                    {(h.hedge_type ?? "").replace(/_/g, " ")} — {h.instrument ?? ""}
                   </p>
                   <p className="mt-0.5 text-xs text-text-secondary">
                     {h.rationale}
