@@ -12,17 +12,21 @@ vi.mock("@/components/charts/PlotlyChart", () => ({
 }));
 
 const mockContagion = {
-  signal: { signal: "elevated", strength: 0.7 },
+  signal: { module: "contagion", signal: "elevated", strength: 0.7, confidence: 0.8, explanation: "Test", regime_context: "Risk-On Growth" },
   granger_network: [
-    { source: "SPX", target: "TLT", p_value: 0.01, lag: 3, f_stat: 8.5 },
-    { source: "GLD", target: "DXY", p_value: 0.03, lag: 1, f_stat: 5.2 },
+    { cause: "SPX", effect: "TLT", p_value: 0.01, lag: 3, f_stat: 8.5, significant: true },
+    { cause: "GLD", effect: "DXY", p_value: 0.03, lag: 1, f_stat: 5.2, significant: true },
   ],
   spillover: {
     total_spillover_index: 55.3,
     directional_to: { SPX: 20, TLT: 15 },
     directional_from: { SPX: 10, TLT: 12 },
     net_spillover: { SPX: 10, TLT: 3, GLD: -5 },
-    pairwise: { SPX: { TLT: 0.4, GLD: 0.2 }, TLT: { SPX: 0.3, GLD: 0.1 } },
+    pairwise: [
+      [0, 0.4, 0.2],
+      [0.3, 0, 0.1],
+      [0.15, 0.1, 0],
+    ],
     assets: ["SPX", "TLT", "GLD"],
   },
   network_graph: {
@@ -32,7 +36,7 @@ const mockContagion = {
     ],
     edges: [{ source: "SPX", target: "TLT", weight: 0.5 }],
   },
-  contagion_flags: ["High SPX→TLT spillover", "Granger link cluster detected"],
+  contagion_flags: { "High SPX→TLT spillover": true, "Granger link cluster detected": true },
   n_significant_links: 4,
   network_density: 0.65,
 };
@@ -42,11 +46,11 @@ const mockSpillover = {
   directional_to: { SPX: 20, TLT: 15, GLD: 10 },
   directional_from: { SPX: 10, TLT: 12, GLD: 8 },
   net_spillover: { SPX: 10, TLT: 3, GLD: -5 },
-  pairwise: {
-    SPX: { SPX: 0, TLT: 0.4, GLD: 0.2 },
-    TLT: { SPX: 0.3, TLT: 0, GLD: 0.1 },
-    GLD: { SPX: 0.15, TLT: 0.1, GLD: 0 },
-  },
+  pairwise: [
+    [0, 0.4, 0.2],
+    [0.3, 0, 0.1],
+    [0.15, 0.1, 0],
+  ],
   assets: ["SPX", "TLT", "GLD"],
 };
 

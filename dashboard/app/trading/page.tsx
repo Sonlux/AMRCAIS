@@ -243,7 +243,7 @@ export default function TradingPage() {
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
             P&amp;L by Regime
           </p>
-          {attr && attr.attribution.length > 0 ? (
+          {attr && Array.isArray(attr.attribution) && attr.attribution.length > 0 ? (
             <PlotlyChart
               height={280}
               data={[

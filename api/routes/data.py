@@ -71,6 +71,9 @@ async def get_prices(
                 asset_df = data.xs(asset_upper, level=1, axis=1)
             else:
                 asset_df = pd.DataFrame()
+        elif asset_upper in data.columns:
+            # market_data has plain asset-name columns (SPX, TLT, …)
+            asset_df = pd.DataFrame({"Close": data[asset_upper]})
         else:
             # Flat columns — look for Close_{asset} or just Close
             close_col = f"Close_{asset_upper}" if f"Close_{asset_upper}" in data.columns else "Close"
@@ -226,6 +229,9 @@ async def get_correlation_matrix(
                     series = data.xs(asset, level=1, axis=1).get("Close")
                     if series is not None:
                         closes[asset] = series
+            elif asset in data.columns:
+                # market_data has plain asset-name columns (SPX, TLT, …)
+                closes[asset] = data[asset]
             else:
                 col_name = f"Close_{asset}" if f"Close_{asset}" in data.columns else None
                 if col_name:

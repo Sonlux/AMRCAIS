@@ -158,13 +158,19 @@ async def get_meta_disagreement():
                 threshold_exceeded=d > threshold,
             ))
     elif ensemble_history:
-        base = datetime.now() - timedelta(days=len(ensemble_history))
-        for i, d in enumerate(ensemble_history):
-            date_str = (base + timedelta(days=i)).strftime("%Y-%m-%d")
+        for entry in ensemble_history:
+            # _disagreement_history stores List[Tuple[datetime, float]]
+            if isinstance(entry, (list, tuple)) and len(entry) == 2:
+                ts, val = entry
+                date_str = ts.strftime("%Y-%m-%d") if hasattr(ts, "strftime") else str(ts)
+                d_val = float(val)
+            else:
+                date_str = datetime.now().strftime("%Y-%m-%d")
+                d_val = float(entry)
             series.append(DisagreementPoint(
                 date=date_str,
-                disagreement=round(float(d), 3),
-                threshold_exceeded=d > threshold,
+                disagreement=round(d_val, 3),
+                threshold_exceeded=d_val > threshold,
             ))
     else:
         # Synthetic

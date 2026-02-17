@@ -68,9 +68,7 @@ export default function Topbar() {
           </div>
         )}
 
-        <span className="text-xs text-text-muted">
-          {time}
-        </span>
+        <span className="text-xs text-text-muted">{time}</span>
       </div>
     </header>
   );

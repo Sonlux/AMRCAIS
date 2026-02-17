@@ -192,9 +192,9 @@ export default function ResearchPage() {
         </p>
         {reports && reports.reports.length > 0 ? (
           <div className="space-y-2">
-            {reports.reports.map((r) => (
+            {reports.reports.map((r, i) => (
               <div
-                key={r.id}
+                key={r.id ?? i}
                 className="rounded-md border border-border/50 bg-surface-elevated p-3"
               >
                 <div

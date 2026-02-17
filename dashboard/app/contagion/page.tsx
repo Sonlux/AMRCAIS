@@ -66,9 +66,9 @@ export default function ContagionPage() {
             />
             <MetricsCard
               label="Contagion Flags"
-              value={contagion.contagion_flags.length}
+              value={Object.keys(contagion.contagion_flags).filter(k => contagion.contagion_flags[k]).length}
               color={
-                contagion.contagion_flags.length > 0 ? "#f59e0b" : "#22c55e"
+                Object.keys(contagion.contagion_flags).filter(k => contagion.contagion_flags[k]).length > 0 ? "#f59e0b" : "#22c55e"
               }
             />
             <SignalCard
@@ -88,20 +88,25 @@ export default function ContagionPage() {
       </div>
 
       {/* Contagion flags */}
-      {contagion && contagion.contagion_flags.length > 0 && (
+      {contagion && (() => {
+        const activeFlags = Object.entries(contagion.contagion_flags)
+          .filter(([, v]) => v)
+          .map(([k]) => k);
+        return activeFlags.length > 0 ? (
         <div className="rounded-lg border border-regime-3/30 bg-regime-3/5 p-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wider text-regime-3">
             Active Contagion Flags
           </p>
           <ul className="space-y-1">
-            {contagion.contagion_flags.map((flag, i) => (
+            {activeFlags.map((flag, i) => (
               <li key={i} className="text-sm text-text-secondary">
                 • {flag}
               </li>
             ))}
           </ul>
         </div>
-      )}
+        ) : null;
+      })()}
 
       {/* Network Graph + Spillover Heatmap */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -116,8 +121,8 @@ export default function ContagionPage() {
               data={(() => {
                 const assets = [
                   ...new Set([
-                    ...contagion.granger_network.map((l) => l.source),
-                    ...contagion.granger_network.map((l) => l.target),
+                    ...contagion.granger_network.map((l) => l.cause),
+                    ...contagion.granger_network.map((l) => l.effect),
                   ]),
                 ];
                 const n = assets.length;
@@ -133,15 +138,15 @@ export default function ContagionPage() {
                 const edgeTraces = contagion.granger_network.map((link) => ({
                   type: "scatter" as const,
                   mode: "lines" as const,
-                  x: [pos[link.source]?.x, pos[link.target]?.x],
-                  y: [pos[link.source]?.y, pos[link.target]?.y],
+                  x: [pos[link.cause]?.x, pos[link.effect]?.x],
+                  y: [pos[link.cause]?.y, pos[link.effect]?.y],
                   line: {
                     color: `rgba(99,102,241,${Math.max(0.2, 1 - link.p_value)})`,
                     width: Math.max(1, link.f_stat / 5),
                   },
                   showlegend: false,
                   hoverinfo: "text" as const,
-                  text: `${link.source} → ${link.target}<br>p=${link.p_value.toFixed(3)}, F=${link.f_stat.toFixed(2)}, lag=${link.lag}`,
+                  text: `${link.cause} → ${link.effect}<br>p=${link.p_value.toFixed(3)}, F=${link.f_stat.toFixed(2)}, lag=${link.lag}`,
                 }));
 
                 const nodeTrace = {
@@ -191,11 +196,11 @@ export default function ContagionPage() {
               data={[
                 {
                   type: "heatmap" as const,
-                  z: spillover.assets.map((from) =>
-                    spillover.assets.map(
-                      (to) => spillover.pairwise?.[from]?.[to] ?? 0,
-                    ),
-                  ),
+                  z: spillover.pairwise.length > 0
+                    ? spillover.pairwise
+                    : spillover.assets.map(() =>
+                        spillover.assets.map(() => 0),
+                      ),
                   x: spillover.assets,
                   y: spillover.assets,
                   colorscale: [
@@ -293,10 +298,10 @@ export default function ContagionPage() {
                       )}
                     >
                       <td className="py-2 pr-4 font-medium text-foreground">
-                        {link.source}
+                        {link.cause}
                       </td>
                       <td className="py-2 pr-4 font-medium text-foreground">
-                        {link.target}
+                        {link.effect}
                       </td>
                       <td className="py-2 pr-4 font-mono text-text-secondary">
                         {link.p_value.toFixed(4)}

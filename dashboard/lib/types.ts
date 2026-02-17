@@ -314,11 +314,12 @@ export interface TransitionForecastResponse {
 }
 
 export interface GrangerLinkResponse {
-  source: string;
-  target: string;
+  cause: string;
+  effect: string;
   p_value: number;
   lag: number;
   f_stat: number;
+  significant: boolean;
 }
 
 export interface SpilloverResponse {
@@ -326,7 +327,7 @@ export interface SpilloverResponse {
   directional_to: Record<string, number>;
   directional_from: Record<string, number>;
   net_spillover: Record<string, number>;
-  pairwise: Record<string, Record<string, number>>;
+  pairwise: number[][];
   assets: string[];
 }
 
@@ -340,7 +341,7 @@ export interface ContagionAnalysisResponse {
   granger_network: GrangerLinkResponse[];
   spillover: SpilloverResponse;
   network_graph: NetworkGraphResponse;
-  contagion_flags: string[];
+  contagion_flags: Record<string, boolean>;
   n_significant_links: number;
   network_density: number;
 }
