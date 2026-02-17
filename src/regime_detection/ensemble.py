@@ -194,7 +194,9 @@ class RegimeEnsemble(BaseClassifier):
         
         Args:
             data: Training data with asset prices and indicators
-            labels: Optional regime labels for supervised classifiers
+            labels: Optional regime labels (1-4) for supervised classifiers.
+                Value 0 denotes unlabeled observations and is filtered out
+                before passing to the ML classifier.
             **kwargs: Additional arguments passed to classifiers
             
         Returns:
@@ -205,7 +207,17 @@ class RegimeEnsemble(BaseClassifier):
         for name, classifier in self.classifiers.items():
             try:
                 if name == "ml" and labels is not None:
-                    classifier.fit(data, labels=labels, **kwargs)
+                    # Filter to labeled-only rows (label != 0)
+                    labeled_mask = labels != 0
+                    if labeled_mask.sum() >= 100:
+                        ml_data = data.iloc[labeled_mask] if isinstance(data, pd.DataFrame) else data[labeled_mask]
+                        ml_labels = labels[labeled_mask]
+                        classifier.fit(ml_data, labels=ml_labels, **kwargs)
+                    else:
+                        logger.warning(
+                            f"Only {labeled_mask.sum()} labeled rows for ML "
+                            f"classifier (need >=100), skipping"
+                        )
                 else:
                     classifier.fit(data, **kwargs)
                 logger.info(f"Successfully fit {name} classifier")

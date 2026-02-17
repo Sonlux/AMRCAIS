@@ -92,6 +92,7 @@ class HMMRegimeClassifier(BaseClassifier):
         self.state_mapping: Dict[int, int] = {}
         self._feature_names: List[str] = []
         self._state_characteristics: Dict[int, Dict] = {}
+        self._fitted_on_returns: bool = False  # Track whether fit auto-converted
     
     def _init_model(self):
         """Initialize the HMM model."""
@@ -109,8 +110,24 @@ class HMMRegimeClassifier(BaseClassifier):
             n_iter=self.n_iter,
             tol=self.tol,
             random_state=self.random_state,
+            min_covar=1e-4,  # Regularize covariance to avoid degeneracy
         )
     
+    def _is_price_data(self, data: Union[pd.DataFrame, np.ndarray]) -> bool:
+        """Heuristic: return True if data looks like prices rather than returns.
+
+        Prices are typically >> 1 and non-stationary (e.g. SPX ~ 5000,
+        VIX ~ 20). Returns are typically ~ 0 with std < 0.1.
+        """
+        if isinstance(data, pd.DataFrame):
+            vals = data.select_dtypes(include=[np.number]).values
+        else:
+            vals = np.asarray(data)
+        if vals.size == 0:
+            return False
+        # Median absolute value > 1 strongly suggests prices, not returns
+        return float(np.nanmedian(np.abs(vals))) > 1.0
+
     def fit(
         self,
         data: Union[pd.DataFrame, np.ndarray],
@@ -118,11 +135,15 @@ class HMMRegimeClassifier(BaseClassifier):
     ) -> "HMMRegimeClassifier":
         """Train the HMM on historical return data.
         
+        If data appears to be prices (median absolute value > 1),
+        percentage returns are computed automatically so that the HMM
+        receives stationary input.
+
         The HMM is unsupervised, so labels are only used for validating
         the learned states against known regime periods (optional).
         
         Args:
-            data: Returns matrix (N observations × M assets)
+            data: Price or returns matrix (N observations × M assets)
                   Expected columns: SPX, TLT, GLD, VIX (at minimum)
             labels: Optional ground truth regimes for validation
             
@@ -138,6 +159,16 @@ class HMMRegimeClassifier(BaseClassifier):
         if isinstance(data, pd.DataFrame):
             self._feature_names = list(data.columns)
         
+        # Auto-convert prices → returns for stationarity
+        self._fitted_on_returns = False
+        if isinstance(data, pd.DataFrame) and self._is_price_data(data):
+            logger.info("HMM: detected price data, converting to returns")
+            data = data.pct_change().dropna()
+            self._fitted_on_returns = True
+            # Update labels to match if provided
+            if labels is not None and len(labels) > len(data):
+                labels = labels[-len(data):]
+        
         # Validate and convert data
         X = self._validate_data(data, min_samples=252)  # At least 1 year
         
@@ -146,7 +177,19 @@ class HMMRegimeClassifier(BaseClassifier):
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            self.model.fit(X)
+            try:
+                self.model.fit(X)
+            except (ValueError, np.linalg.LinAlgError) as err:
+                if self.covariance_type == "full":
+                    logger.warning(
+                        "HMM full-covariance fit failed (%s), "
+                        "retrying with diagonal covariance", err
+                    )
+                    self.covariance_type = "diag"
+                    self._init_model()
+                    self.model.fit(X)
+                else:
+                    raise
         
         # Analyze learned states to map to AMRCAIS regimes
         self._analyze_states(X)
@@ -290,11 +333,14 @@ class HMMRegimeClassifier(BaseClassifier):
     ) -> RegimeResult:
         """Predict the current regime from recent data.
         
+        If the HMM was fitted on returns, prices are converted
+        automatically.
+        
         Uses the Viterbi algorithm to find the most likely state,
         then maps to AMRCAIS regime ID.
         
         Args:
-            data: Recent returns data (single row or window for context)
+            data: Recent price or returns data (window for context)
             
         Returns:
             RegimeResult with regime, confidence, and state probabilities
@@ -304,6 +350,19 @@ class HMMRegimeClassifier(BaseClassifier):
         """
         if not self.is_fitted:
             raise ValueError("HMM classifier must be fitted before prediction")
+        
+        # Convert prices → returns if the model was fitted on returns
+        if self._fitted_on_returns and isinstance(data, pd.DataFrame) and self._is_price_data(data):
+            if len(data) >= 2:
+                data = data.pct_change().dropna()
+            else:
+                # Single-row price data cannot be converted to returns;
+                # fall back to a zero-return vector
+                data = pd.DataFrame(
+                    np.zeros((1, data.shape[1])),
+                    columns=data.columns,
+                    index=data.index[:1],
+                )
         
         # Validate data
         X = self._validate_data(data, min_samples=1)
@@ -349,6 +408,40 @@ class HMMRegimeClassifier(BaseClassifier):
         
         self._log_classification(result)
         return result
+    
+    def predict_sequence(
+        self,
+        data: Union[pd.DataFrame, np.ndarray],
+    ) -> List["RegimeResult"]:
+        """Predict regime for a sequence, converting prices → returns once.
+
+        Overrides the base class to avoid per-row ``pct_change`` calls.
+        """
+        if not self.is_fitted:
+            raise ValueError(f"{self.name} must be fitted before prediction")
+
+        # Convert once for the whole sequence
+        if (
+            self._fitted_on_returns
+            and isinstance(data, pd.DataFrame)
+            and self._is_price_data(data)
+        ):
+            data = data.pct_change().dropna()
+
+        results = []
+        if isinstance(data, pd.DataFrame):
+            for idx in data.index:
+                row = data.loc[idx:idx]
+                result = self.predict(row)
+                result.timestamp = (
+                    idx if isinstance(idx, datetime) else None
+                )
+                results.append(result)
+        else:
+            for i in range(len(data)):
+                result = self.predict(data[i : i + 1])
+                results.append(result)
+        return results
     
     def predict_proba(
         self,

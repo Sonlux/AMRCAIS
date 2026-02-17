@@ -215,6 +215,12 @@ class ReturnForecaster:
         if not factor_cols:
             # Derive basic factors if not present
             factor_cols = self._derive_factors(data, assets)
+        if not factor_cols:
+            logger.warning(
+                "No factor columns found or derivable — cannot fit return models"
+            )
+            self._is_fitted = True
+            return
 
         for asset in assets:
             ret_col = f"{asset}_returns" if f"{asset}_returns" in data.columns else asset
@@ -440,13 +446,29 @@ class ReturnForecaster:
     def _derive_factors(
         self, data: pd.DataFrame, assets: List[str]
     ) -> List[str]:
-        """Derive basic momentum / vol / correlation factors if missing."""
+        """Derive basic momentum / vol / correlation factors if missing.
+
+        If ``<asset>_returns`` columns are not present the method first
+        computes simple returns from the raw price column so that
+        momentum and volatility factors can be built.
+
+        Returns:
+            List of derived factor column names added to *data*, or an
+            empty list when nothing could be derived (callers must
+            handle the empty case).
+        """
         derived: List[str] = []
 
         for asset in assets:
-            ret_col = f"{asset}_returns" if f"{asset}_returns" in data.columns else None
-            if ret_col is None:
-                continue
+            # Locate or create a returns column
+            ret_col = f"{asset}_returns"
+            if ret_col not in data.columns:
+                # Try computing returns from the raw price column
+                if asset in data.columns:
+                    data[ret_col] = data[asset].pct_change()
+                    logger.info("Derived returns column '%s' from raw prices", ret_col)
+                else:
+                    continue
 
             mom_col = f"{asset}_momentum_20d"
             if mom_col not in data.columns:
@@ -459,4 +481,4 @@ class ReturnForecaster:
                 derived.append(vol_col)
 
         # Keep only the first 3 to avoid multicollinearity
-        return derived[:3] if derived else ["_no_factors"]
+        return derived[:3] if derived else []

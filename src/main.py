@@ -38,6 +38,10 @@ from src.prediction.return_forecaster import ReturnForecaster
 from src.prediction.tail_risk import TailRiskAnalyzer
 from src.prediction.portfolio_optimizer import PortfolioOptimizer
 from src.prediction.alpha_signals import AlphaSignalGenerator
+from src.regime_detection.ml_classifier import (
+    create_training_labels,
+    KNOWN_REGIME_PERIODS,
+)
 
 # Load environment variables
 load_dotenv()
@@ -126,11 +130,14 @@ class AMRCAIS:
         
         logger.info("AMRCAIS instance created")
     
-    def initialize(self, lookback_days: int = 365) -> None:
+    def initialize(self, lookback_days: int = 730) -> None:
         """Initialize system with historical data.
         
         Args:
-            lookback_days: Days of history to load for training
+            lookback_days: Calendar days of history to load (default 730 = ~2 years).
+                The HMM classifier needs >=252 trading-day returns, and the
+                ML classifier benefits from overlap with known regime periods
+                (2020-2024), so 2 years is the practical minimum.
         """
         logger.info(f"Initializing AMRCAIS with {lookback_days} days lookback")
         
@@ -170,7 +177,23 @@ class AMRCAIS:
         self.ensemble = RegimeEnsemble(config_path=self.config_path)
         
         if len(self.market_data) > 100:
-            self.ensemble.fit(self.market_data)
+            # Generate training labels for the ML classifier from known periods
+            labels = None
+            if hasattr(self.market_data, 'index'):
+                labels = create_training_labels(
+                    self.market_data.index, KNOWN_REGIME_PERIODS
+                )
+                labeled_count = int((labels != 0).sum())
+                if labeled_count < 100:
+                    logger.info(
+                        f"Only {labeled_count} labeled days — ML classifier "
+                        f"will skip (need >=100)"
+                    )
+                    labels = None
+                else:
+                    logger.info(f"Generated {labeled_count} training labels for ML classifier")
+            
+            self.ensemble.fit(self.market_data, labels=labels)
             logger.info("Ensemble classifier fitted")
         
         # Initialize analytical modules
