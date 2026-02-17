@@ -69,7 +69,7 @@ export default function KnowledgePage() {
             />
             <MetricsCard
               label="Regime Coverage"
-              value={Object.keys(summary.regime_coverage).length}
+              value={Object.keys(summary.regime_coverage ?? {}).length}
               sub="regimes with data"
             />
           </>
@@ -83,7 +83,7 @@ export default function KnowledgePage() {
       </div>
 
       {/* Regime coverage chart */}
-      {summary && Object.keys(summary.regime_coverage).length > 0 && (
+      {summary && Object.keys(summary.regime_coverage ?? {}).length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-text-muted">
             Knowledge Coverage by Regime
@@ -93,12 +93,12 @@ export default function KnowledgePage() {
             data={[
               {
                 type: "bar" as const,
-                x: Object.keys(summary.regime_coverage).map(
+                x: Object.keys(summary.regime_coverage ?? {}).map(
                   (k) => REGIME_NAMES[Number(k)] ?? k,
                 ),
-                y: Object.values(summary.regime_coverage),
+                y: Object.values(summary.regime_coverage ?? {}),
                 marker: {
-                  color: Object.keys(summary.regime_coverage).map(
+                  color: Object.keys(summary.regime_coverage ?? {}).map(
                     (k) => REGIME_COLORS[Number(k)] ?? "#6b7280",
                   ),
                 },
