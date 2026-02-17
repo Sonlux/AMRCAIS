@@ -920,3 +920,310 @@ class Phase4StatusResponse(BaseModel):
     alert_engine: Dict[str, Any] = Field(default_factory=dict)
     stream_manager: Dict[str, Any] = Field(default_factory=dict)
     paper_trading: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ─── Phase 5: Network Effects + Moat ─────────────────────────────
+
+
+class TransitionRecordResponse(BaseModel):
+    """Single regime transition record from the knowledge base."""
+
+    transition_id: str
+    timestamp: str
+    from_regime: int
+    to_regime: int
+    confidence: float = 0.0
+    disagreement: float = 0.0
+    detection_latency_days: float = 0.0
+    leading_indicators: Dict[str, float] = Field(default_factory=dict)
+    classifier_accuracy: Dict[str, bool] = Field(default_factory=dict)
+    post_transition_performance: Dict[str, float] = Field(default_factory=dict)
+    notes: str = ""
+
+
+class TransitionRecordRequest(BaseModel):
+    """Request to record a regime transition."""
+
+    from_regime: int = Field(..., ge=1, le=4)
+    to_regime: int = Field(..., ge=1, le=4)
+    confidence: float = Field(0.0, ge=0, le=1)
+    disagreement: float = Field(0.0, ge=0, le=1)
+    detection_latency_days: float = 0.0
+    leading_indicators: Dict[str, float] = Field(default_factory=dict)
+    classifier_accuracy: Dict[str, bool] = Field(default_factory=dict)
+    notes: str = ""
+
+
+class TransitionsResponse(BaseModel):
+    """Paginated list of transition records."""
+
+    transitions: List[TransitionRecordResponse]
+    total: int
+
+
+class PatternMatchResponse(BaseModel):
+    """Result of pattern similarity search."""
+
+    transition: TransitionRecordResponse
+    similarity: float
+    days_ago: float
+    outcome_summary: str
+
+
+class PatternSearchRequest(BaseModel):
+    """Request a similarity search on regime transitions."""
+
+    current_indicators: Dict[str, float]
+    top_k: int = Field(5, ge=1, le=20)
+    min_similarity: float = Field(0.3, ge=0, le=1)
+
+
+class PatternSearchResponse(BaseModel):
+    """Results of pattern similarity search."""
+
+    matches: List[PatternMatchResponse]
+    query_indicators: Dict[str, float]
+
+
+class AnomalyRecordResponse(BaseModel):
+    """Single anomaly catalog entry."""
+
+    anomaly_id: str
+    timestamp: str
+    anomaly_type: str
+    asset_pair: str
+    regime: int
+    z_score: float
+    expected_value: float
+    actual_value: float
+    reversion_days: Optional[float] = None
+    outcome: str = ""
+
+
+class AnomalyRecordRequest(BaseModel):
+    """Request to record an anomaly."""
+
+    anomaly_type: str
+    asset_pair: str
+    regime: int = Field(..., ge=1, le=4)
+    z_score: float
+    expected_value: float = 0.0
+    actual_value: float = 0.0
+
+
+class AnomaliesResponse(BaseModel):
+    """Paginated list of anomaly records."""
+
+    anomalies: List[AnomalyRecordResponse]
+    total: int
+
+
+class AnomalyStatsResponse(BaseModel):
+    """Aggregate anomaly statistics."""
+
+    total: int
+    avg_z_score: float
+    avg_reversion_days: Optional[float] = None
+    by_regime: Dict[str, int] = Field(default_factory=dict)
+    by_pair: Dict[str, int] = Field(default_factory=dict)
+
+
+class KnowledgeSummaryResponse(BaseModel):
+    """Knowledge base summary statistics."""
+
+    total_transitions: int
+    unique_transition_types: int
+    transition_types: List[Dict[str, int]] = Field(default_factory=list)
+    total_anomalies: int
+    anomaly_types: List[str] = Field(default_factory=list)
+    macro_indicators_tracked: int
+    total_macro_observations: int
+
+
+class MacroImpactRequest(BaseModel):
+    """Request to record a macro impact observation."""
+
+    indicator: str
+    regime: int = Field(..., ge=1, le=4)
+    impact_pct: float
+
+
+class MacroImpactStatsResponse(BaseModel):
+    """Macro impact aggregate statistics."""
+
+    stats: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AltDataSignalResponse(BaseModel):
+    """Single alternative data signal with regime interpretation."""
+
+    name: str
+    value: float
+    z_score: float
+    regime_signal: str
+    regime_weight: float
+    timestamp: str
+    source: str
+    confidence: float
+
+
+class AltDataSetRequest(BaseModel):
+    """Request to set alternative data signal values."""
+
+    values: Dict[str, float]
+
+
+class AltDataVoteResponse(BaseModel):
+    """Regime vote from alternative data signals."""
+
+    vote: str
+    total_weight: float
+    signal_count: int
+    confidence: float
+    confirming_signals: int = 0
+    contradicting_signals: int = 0
+    details: List[AltDataSignalResponse] = Field(default_factory=list)
+
+
+class AltDataStatusResponse(BaseModel):
+    """Alternative data integrator status."""
+
+    available_signals: List[str] = Field(default_factory=list)
+    missing_signals: List[str] = Field(default_factory=list)
+    total_configured: int = 0
+    total_available: int = 0
+    last_update: Optional[str] = None
+    baselines: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchReportResponse(BaseModel):
+    """Generated research report summary."""
+
+    report_id: str
+    title: str
+    report_type: str
+    generated_at: str
+    sections: List[Dict[str, Any]] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    summary: str = ""
+
+
+class ReportListResponse(BaseModel):
+    """List of generated reports."""
+
+    reports: List[ResearchReportResponse]
+    total: int
+
+
+class CaseStudyRequest(BaseModel):
+    """Request to generate a transition case study."""
+
+    from_regime: Optional[int] = Field(None, ge=1, le=4)
+    to_regime: Optional[int] = Field(None, ge=1, le=4)
+    limit: int = Field(20, ge=1, le=100)
+
+
+class BacktestReportRequest(BaseModel):
+    """Request to generate a backtest report."""
+
+    backtest_results: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FactorAnalysisRequest(BaseModel):
+    """Request to generate a factor analysis."""
+
+    factor_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UserResponse(BaseModel):
+    """User account (no sensitive data)."""
+
+    user_id: str
+    name: str
+    email: str
+    role: str
+    permissions: List[str] = Field(default_factory=list)
+    created_at: str
+    last_login: Optional[str] = None
+    is_active: bool = True
+    preferences: Dict[str, Any] = Field(default_factory=dict)
+    annotation_count: int = 0
+
+
+class UserCreateRequest(BaseModel):
+    """Request to create a new user."""
+
+    name: str
+    email: str
+    role: str = "pm"
+    preferences: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UserUpdateRequest(BaseModel):
+    """Request to update a user."""
+
+    name: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+class UserListResponse(BaseModel):
+    """List of users."""
+
+    users: List[UserResponse]
+    total: int
+
+
+class AnnotationResponse(BaseModel):
+    """Shared annotation."""
+
+    annotation_id: str
+    author: str
+    author_id: str
+    role: str
+    content: str
+    context: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: str
+
+
+class AnnotationCreateRequest(BaseModel):
+    """Request to create an annotation."""
+
+    user_id: str
+    content: str
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AnnotationsResponse(BaseModel):
+    """List of annotations."""
+
+    annotations: List[AnnotationResponse]
+    total: int
+
+
+class UserManagerSummaryResponse(BaseModel):
+    """User manager status summary."""
+
+    total_users: int
+    active_users: int
+    by_role: Dict[str, int] = Field(default_factory=dict)
+    total_annotations: int
+    roles_available: List[str] = Field(default_factory=list)
+
+
+class ResearchPublisherSummaryResponse(BaseModel):
+    """Research publisher status summary."""
+
+    total_reports: int
+    by_type: Dict[str, int] = Field(default_factory=dict)
+    output_dir: str = ""
+
+
+class Phase5StatusResponse(BaseModel):
+    """Overall Phase 5 system status."""
+
+    knowledge_base: Dict[str, Any] = Field(default_factory=dict)
+    alt_data: Dict[str, Any] = Field(default_factory=dict)
+    research_publisher: Dict[str, Any] = Field(default_factory=dict)
+    user_manager: Dict[str, Any] = Field(default_factory=dict)

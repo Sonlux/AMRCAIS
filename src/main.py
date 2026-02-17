@@ -118,6 +118,12 @@ class AMRCAIS:
         self.stream_manager: Optional['StreamManager'] = None
         self.paper_trading: Optional['PaperTradingEngine'] = None
         
+        # Phase 5 components (Network Effects + Moat)
+        self.knowledge_base: Optional['KnowledgeBase'] = None
+        self.alt_data_integrator: Optional['AltDataIntegrator'] = None
+        self.research_publisher: Optional['ResearchPublisher'] = None
+        self.user_manager: Optional['UserManager'] = None
+        
         logger.info("AMRCAIS instance created")
     
     def initialize(self, lookback_days: int = 365) -> None:
@@ -243,6 +249,28 @@ class AMRCAIS:
         except Exception as e:
             logger.warning(f"Phase 4 initialization failed: {e}")
 
+        # Initialize Phase 5: Network Effects + Moat
+        try:
+            from src.knowledge.knowledge_base import KnowledgeBase
+            from src.knowledge.alt_data import AltDataIntegrator
+            from src.knowledge.research_publisher import ResearchPublisher
+            from src.knowledge.user_manager import UserManager
+
+            kb_path = str(Path(self.db_path).parent / "knowledge.json")
+            users_path = str(Path(self.db_path).parent / "users.json")
+            reports_dir = str(Path(self.db_path).parent / "reports")
+
+            self.knowledge_base = KnowledgeBase(storage_path=kb_path)
+            self.alt_data_integrator = AltDataIntegrator()
+            self.research_publisher = ResearchPublisher(
+                knowledge_base=self.knowledge_base,
+                output_dir=reports_dir,
+            )
+            self.user_manager = UserManager(storage_path=users_path)
+            logger.info("Phase 5 Network Effects components initialized")
+        except Exception as e:
+            logger.warning(f"Phase 5 initialization failed: {e}")
+
         self._is_initialized = True
         logger.info("AMRCAIS initialization complete with adaptive learning enabled")
     
@@ -282,6 +310,29 @@ class AMRCAIS:
             "probabilities": regime_result.probabilities,
             "individual_predictions": regime_result.individual_predictions,
         }
+        
+        # Phase 5: Feed regime transitions into the knowledge base
+        if self.knowledge_base:
+            prev_regime = getattr(self, "_prev_regime", None)
+            if prev_regime is not None and prev_regime != regime_result.regime:
+                try:
+                    self.knowledge_base.record_transition(
+                        from_regime=prev_regime,
+                        to_regime=regime_result.regime,
+                        confidence=regime_result.confidence,
+                        disagreement=regime_result.disagreement,
+                        leading_indicators={
+                            "confidence": regime_result.confidence,
+                            "disagreement": regime_result.disagreement,
+                        },
+                        classifier_accuracy={
+                            clf: (pred == regime_result.regime)
+                            for clf, pred in regime_result.individual_predictions.items()
+                        },
+                    )
+                except Exception as kb_err:
+                    logger.debug(f"Knowledge base transition recording skipped: {kb_err}")
+            self._prev_regime = regime_result.regime
         
         # Log to meta-learner for adaptive tracking
         if self.meta_learner:
