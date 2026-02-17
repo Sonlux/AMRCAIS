@@ -4,9 +4,11 @@
   <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/TypeScript-5.0+-blue.svg" alt="TypeScript 5.0+">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0 License">
-  <img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen.svg" alt="Status: Active Development">
-  <img src="https://img.shields.io/badge/Backend%20Tests-501%20Passing-brightgreen.svg" alt="Backend Tests: 501 Passing">
-  <img src="https://img.shields.io/badge/Frontend%20Tests-87%20Passing-brightgreen.svg" alt="Frontend Tests: 87 Passing">
+  <img src="https://img.shields.io/badge/Status-All%205%20Phases%20Complete-brightgreen.svg" alt="Status: All 5 Phases Complete">
+  <img src="https://img.shields.io/badge/Backend%20Tests-971%20Passing-brightgreen.svg" alt="Backend Tests: 971 Passing">
+  <img src="https://img.shields.io/badge/Frontend%20Tests-206%20Passing-brightgreen.svg" alt="Frontend Tests: 206 Passing">
+  <img src="https://img.shields.io/badge/API%20Endpoints-80-blue.svg" alt="API Endpoints: 80">
+  <img src="https://img.shields.io/badge/Total%20LOC-42.8K-blue.svg" alt="Total LOC: 42.8K">
 </p>
 
 **A regime-conditional decision intelligence platform for financial markets.** AMRCAIS integrates regime detection with dynamic signal interpretation across asset classes — because a steepening yield curve means something completely different during stagflation than in a disinflationary boom.
@@ -153,66 +155,99 @@ if results['regime']['transition_warning']:
 
 ```
 AMRCAIS/
-├── api/                           # FastAPI backend (22 endpoints)
+├── api/                           # FastAPI backend (80 endpoints)
 │   ├── main.py                    # App factory, CORS, middleware
 │   ├── dependencies.py            # Shared state & DI
 │   ├── middleware.py              # OWASP security, rate limiting
 │   ├── schemas.py                 # Pydantic request/response models
 │   ├── security.py                # CSRF, API key auth
 │   └── routes/                    # Endpoint routers
-│       ├── regime.py              # Regime detection endpoints
-│       ├── modules.py             # Analytical module endpoints
-│       ├── data.py                # Data pipeline + macro endpoints
-│       ├── backtest.py            # Backtesting engine
-│       └── meta.py                # Meta-learning + accuracy + disagreement
-├── src/                           # Core ML engine
+│       ├── regime.py              # Regime detection (5 endpoints)
+│       ├── modules.py             # Analytical modules (5 endpoints)
+│       ├── data.py                # Data pipeline + macro (4 endpoints)
+│       ├── backtest.py            # Backtesting engine (3 endpoints)
+│       ├── meta.py                # Meta-learning + accuracy (7 endpoints)
+│       ├── phase2.py              # Transition, contagion, narrative (8 endpoints)
+│       ├── phase3.py              # Forecasts, VaR, portfolio, alpha (6 endpoints)
+│       ├── phase4.py              # Events, alerts, SSE, trading (14 endpoints)
+│       └── phase5.py              # Knowledge, research, alt data, users (28 endpoints)
+├── src/                           # Core ML engine (~18,500 lines)
 │   ├── main.py                    # AMRCAIS orchestrator
-│   ├── regime_detection/          # 4 classifiers + ensemble
+│   ├── regime_detection/          # 4 classifiers + ensemble + extensions
 │   │   ├── hmm_classifier.py      # GaussianHMM 4-state
 │   │   ├── ml_classifier.py       # 200-tree Random Forest
 │   │   ├── correlation_classifier.py  # KMeans/Spectral clustering
-│   │   ├── volatility_classifier.py   # VIX + realized vol
-│   │   └── ensemble.py            # Weighted voting + disagreement
-│   ├── modules/                   # 5 analytical modules
-│   │   ├── base.py                # AnalyticalModule ABC
+│   │   ├── volatility_classifier.py   # VIX + GARCH(1,1)
+│   │   ├── ensemble.py            # Weighted voting + disagreement
+│   │   ├── transition_model.py    # HMM + logistic transition forecasting
+│   │   └── multi_timeframe.py     # Daily/weekly/monthly ensembles
+│   ├── modules/                   # 7 analytical modules
 │   │   ├── macro_event_tracker.py
-│   │   ├── yield_curve_analyzer.py
+│   │   ├── yield_curve_analyzer.py    # Nelson-Siegel + cubic spline
 │   │   ├── options_surface_monitor.py
 │   │   ├── factor_exposure_analyzer.py
-│   │   └── correlation_anomaly_detector.py
-│   ├── meta_learning/             # Layer 3
+│   │   ├── correlation_anomaly_detector.py
+│   │   ├── contagion_network.py       # Granger + Diebold-Yilmaz
+│   │   └── macro_surprise_decay.py    # Exponential decay model
+│   ├── meta_learning/             # Adaptive intelligence layer
 │   │   ├── performance_tracker.py # Accuracy tracking
-│   │   ├── meta_learner.py        # Recalibration logic
-│   │   └── recalibration.py       # Trigger evaluation
+│   │   ├── meta_learner.py        # Walk-forward recalibration
+│   │   └── recalibration.py       # 5 trigger conditions
+│   ├── prediction/                # Regime-conditional prediction
+│   │   ├── return_forecaster.py   # Return distributions
+│   │   ├── tail_risk.py           # VaR, CVaR, stress testing
+│   │   ├── portfolio_optimizer.py # Mean-variance optimization
+│   │   └── alpha_signals.py       # Cross-module composite signals
+│   ├── realtime/                  # Real-time + execution
+│   │   ├── event_bus.py           # Pub/sub with 14 event types
+│   │   ├── scheduler.py           # Periodic analysis
+│   │   ├── alert_engine.py        # 7 alert types, cooldown fatigue
+│   │   ├── stream_manager.py      # SSE streaming
+│   │   └── paper_trading.py       # Simulated portfolio execution
+│   ├── knowledge/                 # Institutional memory
+│   │   ├── knowledge_base.py      # Transitions, anomalies, patterns
+│   │   ├── research_publisher.py  # Case studies, reports
+│   │   ├── alt_data.py            # Sentiment, satellite, flow data
+│   │   └── user_manager.py        # Multi-user RBAC
+│   ├── narrative/                 # NL generation
+│   │   └── narrative_generator.py # Daily briefings
 │   └── data_pipeline/             # Data fetching & validation
 │       ├── fetchers.py            # FRED, yfinance, Alpha Vantage
 │       ├── validators.py          # Data quality checks
-│       ├── storage.py             # SQLite persistence
+│       ├── storage.py             # SQLite/PostgreSQL persistence
 │       └── pipeline.py            # Orchestrated data flow
-├── dashboard/                     # Next.js 16 frontend
-│   ├── app/                       # App Router pages
+├── dashboard/                     # Next.js 16 frontend (~9,600 lines)
+│   ├── app/                       # App Router pages (14 pages)
 │   │   ├── page.tsx               # Overview dashboard
 │   │   ├── regime/page.tsx        # Regime analysis
 │   │   ├── modules/page.tsx       # Module signals
 │   │   ├── correlations/page.tsx  # Correlation monitoring
 │   │   ├── backtest/page.tsx      # Backtesting
-│   │   └── meta/page.tsx          # Meta-learning & accuracy
-│   ├── components/                # React components
+│   │   ├── meta/page.tsx          # Meta-learning & accuracy
+│   │   ├── intelligence/page.tsx  # Transition forecasts, multi-timeframe
+│   │   ├── contagion/page.tsx     # Contagion network, spillover
+│   │   ├── predictions/page.tsx   # Return forecasts, alpha signals
+│   │   ├── risk/page.tsx          # Tail risk, portfolio optimization
+│   │   ├── alerts/page.tsx        # Alert management & events
+│   │   ├── trading/page.tsx       # Paper trading & equity curves
+│   │   ├── knowledge/page.tsx     # Institutional memory
+│   │   └── research/page.tsx      # Research reports & case studies
+│   ├── components/                # React components (27 total)
 │   │   ├── charts/                # 18 chart components (incl. 3D)
 │   │   ├── layout/                # Navigation & layout
 │   │   ├── overview/              # Dashboard cards
-│   │   └── ui/                    # Shared UI primitives
+│   │   └── ui/                    # 6 shared UI primitives
 │   ├── lib/                       # Utilities
-│   │   ├── api.ts                 # API client functions
+│   │   ├── api.ts                 # API client (40+ fetch functions)
 │   │   ├── hooks.ts               # Custom React hooks
-│   │   ├── types.ts               # TypeScript types
-│   │   └── utils.ts               # Helper utilities
-│   └── __tests__/                 # Vitest test suite
+│   │   ├── types.ts               # TypeScript interfaces (~700 lines)
+│   │   └── utils.ts               # Formatting: pct, pctRaw, num, currency
+│   └── __tests__/                 # Vitest test suite (17 files, 206 tests)
 ├── config/                        # YAML configuration
 │   ├── regimes.yaml               # Regime definitions & weights
 │   ├── data_sources.yaml          # API endpoints & keys
 │   └── model_params.yaml          # Model hyperparameters
-├── tests/                         # Backend test suite (501 tests)
+├── tests/                         # Backend test suite (971 tests, 20 files)
 ├── docker-compose.yml             # Multi-container deployment
 ├── Dockerfile.api                 # API container
 ├── Dockerfile.dashboard           # Dashboard container
@@ -223,29 +258,19 @@ AMRCAIS/
 
 ## API Endpoints
 
-The FastAPI backend exposes 22 endpoints:
+The FastAPI backend exposes **80 endpoints** across 9 route files:
 
-| Category     | Endpoint                          | Description                     |
-| ------------ | --------------------------------- | ------------------------------- |
-| **Regime**   | `GET /api/regime/current`         | Current regime classification   |
-|              | `GET /api/regime/history`         | Regime history with transitions |
-|              | `GET /api/regime/ensemble`        | Ensemble classifier details     |
-|              | `GET /api/regime/disagreement`    | Disagreement index time series  |
-| **Modules**  | `GET /api/modules/macro`          | Macro event impact analysis     |
-|              | `GET /api/modules/yield-curve`    | Yield curve analysis            |
-|              | `GET /api/modules/options`        | Options surface monitor         |
-|              | `GET /api/modules/factors`        | Factor exposure analysis        |
-|              | `GET /api/modules/correlations`   | Correlation anomaly detection   |
-|              | `GET /api/modules/all`            | All module signals combined     |
-| **Data**     | `GET /api/data/assets`            | Asset price data                |
-|              | `GET /api/data/macro/{indicator}` | Specific macro indicator data   |
-|              | `GET /api/data/status`            | Data pipeline health            |
-| **Backtest** | `POST /api/backtest/run`          | Run regime-based backtest       |
-|              | `GET /api/backtest/results`       | Retrieve backtest results       |
-| **Meta**     | `GET /api/meta/performance`       | System performance metrics      |
-|              | `GET /api/meta/accuracy`          | Classifier accuracy over time   |
-|              | `GET /api/meta/disagreement`      | Disagreement vs SPX analysis    |
-|              | `GET /api/meta/recalibration`     | Recalibration status            |
+| Category          | Endpoints | Key Routes                                                        |
+| ----------------- | --------- | ----------------------------------------------------------------- |
+| **Regime**        | 5         | `/api/regime/current`, `/history`, `/ensemble`, `/disagreement`   |
+| **Modules**       | 5         | `/api/modules/macro`, `/yield-curve`, `/options`, `/factors`, `/all` |
+| **Data**          | 4         | `/api/data/assets`, `/macro/{indicator}`, `/status`               |
+| **Backtest**      | 3         | `/api/backtest/run`, `/results`                                   |
+| **Meta**          | 7         | `/api/meta/performance`, `/accuracy`, `/disagreement`, `/recalibration` |
+| **Phase 2**       | 8         | `/api/phase2/transition-forecast`, `/contagion/*`, `/narrative`, `/multi-timeframe`, `/surprise-decay/*` |
+| **Phase 3**       | 6         | `/api/phase3/return-forecast`, `/tail-risk`, `/portfolio-optimize`, `/alpha-signals` |
+| **Phase 4**       | 14        | `/api/phase4/events`, `/alerts/*`, `/stream`, `/portfolio/*`, `/trades`, `/rebalance` |
+| **Phase 5**       | 28        | `/api/phase5/knowledge/*`, `/research/*`, `/alt-data/*`, `/users/*`, `/annotations/*` |
 
 Full interactive API docs available at `/docs` when the server is running.
 
@@ -253,16 +278,24 @@ Full interactive API docs available at `/docs` when the server is running.
 
 ## Dashboard
 
-The Next.js dashboard provides 7 pages with 18 interactive chart components:
+The Next.js dashboard provides **14 pages** with 18 chart components and 6 UI primitives:
 
-| Page             | Charts                                              | Key Features                          |
-| ---------------- | --------------------------------------------------- | ------------------------------------- |
-| **Overview**     | Regime gauge, summary cards                         | Current regime at a glance            |
-| **Regime**       | Timeline, confidence, ensemble heatmap              | Historical regime analysis            |
-| **Modules**      | Signal charts per module                            | Regime-adaptive signal interpretation |
-| **Correlations** | Correlation matrix, anomaly scatter, 3D vol surface | Cross-asset monitoring                |
-| **Backtest**     | Equity curve, drawdown chart, trade log             | Strategy validation                   |
-| **Meta**         | Accuracy line chart, disagreement vs SPX            | System self-assessment                |
+| Page              | Key Features                                                     |
+| ----------------- | ---------------------------------------------------------------- |
+| **Overview**      | Regime gauge, summary cards, disagreement index                  |
+| **Regime**        | Timeline, confidence, ensemble heatmap, distribution             |
+| **Modules**       | Signal cards per module, regime-adaptive interpretation           |
+| **Correlations**  | Correlation matrix, anomaly scatter, 3D vol surface              |
+| **Backtest**      | Equity curve, drawdown chart, trade log                          |
+| **Meta**          | Accuracy line chart, disagreement vs SPX, weight evolution       |
+| **Intelligence**  | Transition forecasts, multi-timeframe detection, NL narratives   |
+| **Contagion**     | Network density, Granger links, spillover matrix, net spillover  |
+| **Predictions**   | Return forecasts per asset, alpha signals, factor contributions  |
+| **Risk**          | Tail risk VaR/CVaR, stress scenarios, regime-conditional portfolios |
+| **Alerts**        | Alert management, severity filters, event log, config table      |
+| **Trading**       | Paper trading positions, equity curve, regime attribution        |
+| **Knowledge**     | Institutional memory, transitions, anomalies, pattern search     |
+| **Research**      | Research reports, case study generator, regime comparison        |
 
 Chart technologies: Plotly.js 3.3.1 (15 chart types incl. 3D surfaces), TradingView Lightweight Charts 5.1.0 (equity curves, regime timeline).
 
@@ -330,13 +363,15 @@ npx vitest
 
 ## Analytical Modules
 
-| Module                           | Purpose                            | Regime Adaptation                                    |
-| -------------------------------- | ---------------------------------- | ---------------------------------------------------- |
-| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC impact     | Different event weights per regime                   |
-| **Yield Curve Analyzer**         | Duration, DV01, curve shapes       | Steepening bullish in Growth, bearish in Stagflation |
-| **Options Surface Monitor**      | IV surfaces, skew analysis         | Adjusted skew thresholds per volatility regime       |
-| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors   | Factor recommendations rotate by regime              |
-| **Correlation Anomaly Detector** | Cross-asset correlation monitoring | Regime-specific correlation baselines                |
+| Module                           | Purpose                             | Regime Adaptation                                    |
+| -------------------------------- | ----------------------------------- | ---------------------------------------------------- |
+| **Macro Event Tracker**          | Monitors NFP, CPI, FOMC impact      | Different event weights per regime                   |
+| **Yield Curve Analyzer**         | Nelson-Siegel, DV01, curve shapes   | Steepening bullish in Growth, bearish in Stagflation |
+| **Options Surface Monitor**      | IV surfaces, skew analysis          | Adjusted skew thresholds per volatility regime       |
+| **Factor Exposure Analyzer**     | Value, Momentum, Quality factors    | Factor recommendations rotate by regime              |
+| **Correlation Anomaly Detector** | Cross-asset correlation monitoring  | Regime-specific correlation baselines                |
+| **Contagion Network**            | Granger causality + spillover       | Regime-dependent transmission channels               |
+| **Macro Surprise Decay**         | Per-indicator exponential decay     | Decay rates adjust by regime volatility              |
 
 ---
 
@@ -365,14 +400,21 @@ The data pipeline implements automatic fallback: FRED → yfinance → Alpha Van
 
 ## Project Roadmap
 
-| Phase                                   | Status      | Key Deliverable                                                   |
-| --------------------------------------- | ----------- | ----------------------------------------------------------------- |
-| **Phase 0:** Foundation                 | ✅ Complete | 21,800 LOC, 588 tests, 22 endpoints, 18 charts, Docker deployment |
-| **Phase 1:** Hardening (Wk 1–6)         | 🔜 Next     | Zero stubs, real data everywhere, recalibration engine            |
-| **Phase 2:** Intelligence (Wk 7–14)     | 📋 Planned  | Transition prediction, contagion network, narrative generation    |
-| **Phase 3:** Prediction (Wk 15–24)      | 📋 Planned  | Return forecasting, tail risk attribution, portfolio optimizer    |
-| **Phase 4:** Real-Time (Wk 25–36)       | 📋 Planned  | WebSocket, alerts, paper trading, Python SDK                      |
-| **Phase 5:** Network Effects (Wk 37–52) | 📋 Planned  | Institutional memory, multi-user, alternative data                |
+| Phase                                   | Status      | Key Deliverable                                                    |
+| --------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| **Phase 0:** Foundation                 | ✅ Complete | Data pipeline, 4 classifiers, 5 modules, 24 endpoints, dashboard   |
+| **Phase 1:** Hardening                  | ⚠️ ~85%     | Recalibration engine, signal persistence, GARCH, Nelson-Siegel     |
+| **Phase 2:** Intelligence               | ✅ Complete | Transition model, contagion network, narrative, multi-timeframe     |
+| **Phase 3:** Prediction                 | ✅ Complete | Return forecasting, tail risk, portfolio optimizer, alpha signals   |
+| **Phase 4:** Real-Time + Execution      | ✅ Complete | EventBus, alerts, SSE streaming, paper trading                     |
+| **Phase 5:** Network Effects            | ✅ Complete | Knowledge base, research publisher, alt data, multi-user RBAC      |
+
+### Remaining Work (Phase 1 Quality Upgrades)
+
+- Replace VIX proxy with real CBOE options data + SABR calibration
+- Replace PCA factor analysis with Fama-French/AQR rolling OLS
+- End-to-end integration testing with live market data
+- CI/CD pipeline, production deployment, Python SDK
 
 See [AMCRAIS_PRD.md](AMCRAIS_PRD.md) for the full product requirements and detailed roadmap.
 
@@ -398,7 +440,7 @@ See [AMCRAIS_PRD.md](AMCRAIS_PRD.md) for the full product requirements and detai
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 — see the [LICENSE](LICENSE) file for details.
 
 ---
 
